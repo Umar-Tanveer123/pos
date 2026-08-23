@@ -1,0 +1,23 @@
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+venv_win/
+.env
+
+# Database files
+*.db
+backups/
+
+# PyInstaller / Build artifacts
+build/
+dist/
+dist.zip
+*.spec
+
+# macOS system files
+.DS_Store
