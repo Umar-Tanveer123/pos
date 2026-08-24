@@ -1,22 +1,22 @@
 @echo off
-echo.
 echo Starting POS System Setup...
-echo.
 
-python --version >nul 2>&1
-if errorlevel 1 goto nopython
+rem If the venv was created on a Mac, delete it and recreate it for Windows
+if exist venv if not exist venv\Scripts\activate.bat rmdir /s /q venv
 
 if not exist venv (
-    echo Creating virtual environment (venv)...
+    echo Creating Windows virtual environment...
     python -m venv venv
 )
 
-echo Installing dependencies...
+echo Activating environment...
 call venv\Scripts\activate
+
+echo Installing dependencies...
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 
-echo Running database migrations...
+echo Running database setup...
 alembic upgrade head
 python scripts/seed_admin.py
 
@@ -25,10 +25,3 @@ python desktop_app.py
 
 echo Done.
 pause
-exit /b
-
-:nopython
-echo [ERROR] Python is not installed or not added to your Windows PATH.
-echo Please install Python 3.10+ or 3.11+ first, and check "Add Python to PATH".
-pause
-exit /b
