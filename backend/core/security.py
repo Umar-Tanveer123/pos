@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
+import passlib.handlers.bcrypt
 import jwt
 from backend.core.config import settings
 
