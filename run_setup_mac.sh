@@ -26,15 +26,8 @@ echo "Setting up local database..."
 alembic upgrade head
 python3 scripts/seed_admin.py
 
-# 4. Launch Backend API and Frontend GUI
-echo "Starting Backend API Server..."
-# Run uvicorn in the background
-uvicorn backend.main:app --host 127.0.0.1 --port 8000 &
-BACKEND_PID=$!
-
-echo "Starting Desktop Application..."
+# 4. Launch Unified Application
+echo "Starting POS System..."
 python3 desktop_app.py
 
-# When PySide6 closes, kill the background backend process
-kill $BACKEND_PID
 echo "Done."

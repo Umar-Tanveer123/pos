@@ -28,11 +28,8 @@ echo Setting up local database...
 alembic upgrade head
 python scripts/seed_admin.py
 
-REM 4. Launch Backend API and Frontend GUI
-echo Starting Backend API Server...
-start "POS Backend API" /min cmd /k "venv\Scripts\activate && uvicorn backend.main:app --host 127.0.0.1 --port 8000"
-
-echo Starting Desktop Application...
+REM 4. Launch Unified Application
+echo Starting POS System...
 python desktop_app.py
 
 echo Done.
