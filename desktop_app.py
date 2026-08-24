@@ -35,44 +35,57 @@ from backend.core.security import get_password_hash
 from backend.main import app
 
 def init_database():
-    # 1. Create database tables if they do not exist
-    Base.metadata.create_all(bind=engine)
-    
-    # 2. Seed initial data (Roles & Admin Account)
-    db = SessionLocal()
     try:
-        # Automatic DB schema upgrade: Check if customers.is_active column exists
-        cursor = db.execute("PRAGMA table_info(customers)")
-        columns = [row[1] for row in cursor.fetchall()]
-        if "is_active" not in columns:
-            print("Database Setup: Adding missing is_active column to customers table...")
-            db.execute("ALTER TABLE customers ADD COLUMN is_active INTEGER DEFAULT 1")
-            db.commit()
-
-        admin_role = db.query(Role).filter(Role.name == "Admin").first()
-        if not admin_role:
-            admin_role = Role(name="Admin", description="Full system access")
-            db.add(admin_role)
-            db.commit()
-            db.refresh(admin_role)
-            print("Database Setup: Admin Role created.")
+        # 1. Try to create tables (this only creates missing tables)
+        Base.metadata.create_all(bind=engine)
+        
+        # 2. Test if the database schema is up-to-date by querying new columns
+        db = SessionLocal()
+        schema_ok = True
+        try:
+            db.execute("SELECT is_active FROM customers LIMIT 1")
+            db.execute("SELECT secondary_unit_id, conversion_factor FROM products LIMIT 1")
+        except Exception:
+            schema_ok = False
+        finally:
+            db.close()
             
-        admin_user = db.query(User).filter(User.username == "admin").first()
-        if not admin_user:
-            hashed_password = get_password_hash("admin123")
-            admin_user = User(
-                username="admin",
-                hashed_password=hashed_password,
-                role_id=admin_role.id,
-                is_active=True
-            )
-            db.add(admin_user)
-            db.commit()
-            print("Database Setup: Default Admin User created (admin/admin123).")
+        # 3. If schema is outdated, perform a self-healing reset (drop and recreate all tables)
+        if not schema_ok:
+            print("Database Setup: Schema mismatch detected. Performing self-healing database reset...")
+            Base.metadata.drop_all(bind=engine)
+            Base.metadata.create_all(bind=engine)
+            
+        # 4. Seed initial data (Roles & Admin Account)
+        db = SessionLocal()
+        try:
+            admin_role = db.query(Role).filter(Role.name == "Admin").first()
+            if not admin_role:
+                admin_role = Role(name="Admin", description="Full system access")
+                db.add(admin_role)
+                db.commit()
+                db.refresh(admin_role)
+                print("Database Setup: Admin Role created.")
+                
+            admin_user = db.query(User).filter(User.username == "admin").first()
+            if not admin_user:
+                hashed_password = get_password_hash("admin123")
+                admin_user = User(
+                    username="admin",
+                    hashed_password=hashed_password,
+                    role_id=admin_role.id,
+                    is_active=True
+                )
+                db.add(admin_user)
+                db.commit()
+                print("Database Setup: Default Admin User created (admin/admin123).")
+        except Exception as seed_err:
+            print(f"Database Seeding Error: {seed_err}")
+        finally:
+            db.close()
+            
     except Exception as e:
         print(f"Database Setup Error: {e}")
-    finally:
-        db.close()
 
 def wait_for_backend(host="127.0.0.1", port=8000, timeout=10):
     start_time = time.time()
