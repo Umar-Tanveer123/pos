@@ -22,6 +22,8 @@ if sys.stdin is None:
 
 import multiprocessing
 import uvicorn
+import socket
+import time
 from PySide6.QtWidgets import QApplication
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -64,6 +66,16 @@ def init_database():
     finally:
         db.close()
 
+def wait_for_backend(host="127.0.0.1", port=8000, timeout=10):
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        try:
+            with socket.create_connection((host, port), timeout=0.5):
+                return True
+        except (socket.timeout, ConnectionRefusedError, OSError):
+            time.sleep(0.1)
+    return False
+
 def run_backend():
     uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
 
@@ -77,6 +89,10 @@ def main():
     # Launch FastAPI Server in background daemon process
     backend_proc = multiprocessing.Process(target=run_backend, daemon=True)
     backend_proc.start()
+    
+    # Wait for the backend API port to become active before starting GUI
+    if not wait_for_backend(timeout=10):
+        print("[WARNING] Backend server did not respond within timeout.")
     
     # Launch PySide6 GUI
     from frontend.theme import GLOBAL_STYLESHEET
