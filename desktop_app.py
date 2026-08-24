@@ -77,8 +77,13 @@ def wait_for_backend(host="127.0.0.1", port=8000, timeout=10):
     return False
 
 def run_backend():
-    # Running uvicorn in a thread requires disabling signals installation
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning", install_signals=False)
+    try:
+        # Running uvicorn in a thread requires disabling signals installation
+        uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning", install_signals=False)
+    except Exception as e:
+        print(f"[ERROR] Backend thread crashed: {e}")
+        import traceback
+        traceback.print_exc()
 
 def main():
     # Initialize/update database structure and seed default user
