@@ -41,6 +41,14 @@ def init_database():
     # 2. Seed initial data (Roles & Admin Account)
     db = SessionLocal()
     try:
+        # Automatic DB schema upgrade: Check if customers.is_active column exists
+        cursor = db.execute("PRAGMA table_info(customers)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if "is_active" not in columns:
+            print("Database Setup: Adding missing is_active column to customers table...")
+            db.execute("ALTER TABLE customers ADD COLUMN is_active INTEGER DEFAULT 1")
+            db.commit()
+
         admin_role = db.query(Role).filter(Role.name == "Admin").first()
         if not admin_role:
             admin_role = Role(name="Admin", description="Full system access")
@@ -76,11 +84,16 @@ def wait_for_backend(host="127.0.0.1", port=8000, timeout=10):
             time.sleep(0.1)
     return False
 
+class SafeServer(uvicorn.Server):
+    def install_signal_handlers(self):
+        # Override to disable signal handler registration when running inside a thread
+        pass
+
 def run_backend():
     try:
-        # Running uvicorn in a thread requires disabling signals installation
-        config = uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="warning", install_signals=False)
-        server = uvicorn.Server(config)
+        # Configure and start Uvicorn safely using our SafeServer
+        config = uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="warning")
+        server = SafeServer(config)
         server.run()
     except Exception as e:
         print(f"[ERROR] Backend thread crashed: {e}")
