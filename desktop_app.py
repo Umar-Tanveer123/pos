@@ -20,7 +20,7 @@ if sys.stderr is None:
 if sys.stdin is None:
     sys.stdin = DummyStream()
 
-import multiprocessing
+import threading
 import uvicorn
 import socket
 import time
@@ -77,18 +77,16 @@ def wait_for_backend(host="127.0.0.1", port=8000, timeout=10):
     return False
 
 def run_backend():
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
+    # Running uvicorn in a thread requires disabling signals installation
+    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning", install_signals=False)
 
 def main():
-    # Support for PyInstaller packaging
-    multiprocessing.freeze_support()
-    
     # Initialize/update database structure and seed default user
     init_database()
     
-    # Launch FastAPI Server in background daemon process
-    backend_proc = multiprocessing.Process(target=run_backend, daemon=True)
-    backend_proc.start()
+    # Launch FastAPI Server in background daemon thread
+    backend_thread = threading.Thread(target=run_backend, daemon=True)
+    backend_thread.start()
     
     # Wait for the backend API port to become active before starting GUI
     if not wait_for_backend(timeout=10):
@@ -105,9 +103,6 @@ def main():
     window.show()
     
     status = qt_app.exec()
-    
-    # Graceful shutdown of backend process
-    backend_proc.terminate()
     sys.exit(status)
 
 if __name__ == "__main__":
