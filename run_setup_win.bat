@@ -36,3 +36,4 @@ echo Starting Desktop Application...
 python desktop_app.py
 
 echo Done.
+pause
