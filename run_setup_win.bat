@@ -1,6 +1,6 @@
 @echo off
 echo ==========================================
-echo   POS SYSTEM AUTOMATIC INSTALLER & RUNNER
+echo   POS SYSTEM AUTOMATIC INSTALLER AND RUNNER
 echo ==========================================
 
 REM Check if Python is installed
