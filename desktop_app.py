@@ -79,7 +79,9 @@ def wait_for_backend(host="127.0.0.1", port=8000, timeout=10):
 def run_backend():
     try:
         # Running uvicorn in a thread requires disabling signals installation
-        uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning", install_signals=False)
+        config = uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="warning", install_signals=False)
+        server = uvicorn.Server(config)
+        server.run()
     except Exception as e:
         print(f"[ERROR] Backend thread crashed: {e}")
         import traceback
