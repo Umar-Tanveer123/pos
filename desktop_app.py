@@ -1,5 +1,25 @@
 import sys
 import os
+
+class DummyStream:
+    def write(self, data):
+        pass
+    def read(self, *args, **kwargs):
+        return ""
+    def readline(self, *args, **kwargs):
+        return ""
+    def flush(self):
+        pass
+    def isatty(self):
+        return False
+
+if sys.stdout is None:
+    sys.stdout = DummyStream()
+if sys.stderr is None:
+    sys.stderr = DummyStream()
+if sys.stdin is None:
+    sys.stdin = DummyStream()
+
 import multiprocessing
 import uvicorn
 from PySide6.QtWidgets import QApplication
