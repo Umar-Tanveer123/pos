@@ -21,18 +21,18 @@ class LoginScreen(QWidget):
         # The Login Card
         self.card = QFrame()
         self.card.setObjectName("Card")
-        self.card.setFixedSize(400, 520) # Slightly adjust height for checkbox
+        self.card.setFixedSize(360, 420)
         
         # Add a subtle drop shadow to the card
         shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(20)
+        shadow.setBlurRadius(16)
         shadow.setColor(QColor(0, 0, 0, 150))
-        shadow.setOffset(0, 10)
+        shadow.setOffset(0, 8)
         self.card.setGraphicsEffect(shadow)
 
         card_layout = QVBoxLayout(self.card)
-        card_layout.setContentsMargins(40, 40, 40, 40)
-        card_layout.setSpacing(20)
+        card_layout.setContentsMargins(28, 28, 28, 28)
+        card_layout.setSpacing(12)
 
         # Title
         title_label = QLabel("Welcome Back")
