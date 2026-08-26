@@ -1,4 +1,5 @@
 import os
+import sys
 import shutil
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,10 +12,13 @@ from backend.api.audit import log_action
 
 router = APIRouter()
 
-BACKUP_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "backups"
-)
+# Get application root directory (supporting PyInstaller packaging)
+if getattr(sys, 'frozen', False):
+    base_dir = os.path.dirname(sys.executable)
+else:
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+BACKUP_DIR = os.path.join(base_dir, "backups")
 
 @router.post("/backup")
 def create_backup(db: Session = Depends(get_db), current_user: User = Depends(get_current_active_user)):
@@ -24,7 +28,6 @@ def create_backup(db: Session = Depends(get_db), current_user: User = Depends(ge
     if not os.path.exists(BACKUP_DIR):
         os.makedirs(BACKUP_DIR)
 
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     db_path = os.path.join(base_dir, settings.SQLITE_DB_NAME)
 
     if not os.path.exists(db_path):
@@ -62,7 +65,6 @@ def restore_backup(filename: str, db: Session = Depends(get_db), current_user: U
     if not os.path.exists(backup_path):
         raise HTTPException(status_code=404, detail="Backup file not found.")
 
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     db_path = os.path.join(base_dir, settings.SQLITE_DB_NAME)
 
     try:
