@@ -34,7 +34,7 @@ QWidget {
     background-color: #121212;
     color: #E2E8F0;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 QMainWindow {
@@ -45,10 +45,10 @@ QMainWindow {
 QLineEdit {
     background-color: #1A1F2C;
     border: 1px solid #2D3748;
-    border-radius: 6px;
-    padding: 6px 10px;
+    border-radius: 5px;
+    padding: 5px 8px;
     color: #FFFFFF;
-    font-size: 12px;
+    font-size: 11px;
     selection-background-color: #6C5CE7;
 }
 
@@ -62,11 +62,11 @@ QPushButton {
     background-color: #6C5CE7;
     color: #FFFFFF;
     border: none;
-    border-radius: 6px;
-    padding: 7px 16px;
-    font-size: 12px;
+    border-radius: 5px;
+    padding: 5px 12px;
+    font-size: 11px;
     font-weight: 600;
-    min-width: 80px;
+    min-width: 70px;
 }
 
 QPushButton:hover {
@@ -82,13 +82,13 @@ QPushButton#EditAction {
     background-color: #1E293B;
     color: #94A3B8;
     border: 1px solid #334155;
-    border-radius: 4px;
-    padding: 3px 8px;
-    font-size: 11px;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 10px;
     font-weight: 600;
-    min-height: 22px;
-    min-width: 52px;
-    max-width: 64px;
+    min-height: 18px;
+    min-width: 46px;
+    max-width: 58px;
 }
 
 QPushButton#EditAction:hover {
@@ -101,13 +101,13 @@ QPushButton#DeleteAction {
     background-color: #2D1A1A;
     color: #FCA5A5;
     border: 1px solid #4E2323;
-    border-radius: 4px;
-    padding: 3px 8px;
-    font-size: 11px;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 10px;
     font-weight: 600;
-    min-height: 22px;
-    min-width: 52px;
-    max-width: 64px;
+    min-height: 18px;
+    min-width: 46px;
+    max-width: 58px;
 }
 
 QPushButton#DeleteAction:hover {
@@ -120,13 +120,13 @@ QPushButton#ViewAction {
     background-color: #064E3B;
     color: #A7F3D0;
     border: 1px solid #047857;
-    border-radius: 4px;
-    padding: 3px 8px;
-    font-size: 11px;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 10px;
     font-weight: 600;
-    min-height: 22px;
-    min-width: 52px;
-    max-width: 64px;
+    min-height: 18px;
+    min-width: 46px;
+    max-width: 58px;
 }
 
 QPushButton#ViewAction:hover {
@@ -145,20 +145,20 @@ QFrame#Card {
 QGroupBox {
     background-color: #151922;
     border: 1px solid #242B35;
-    border-radius: 6px;
-    margin-top: 10px;
-    padding: 12px;
+    border-radius: 5px;
+    margin-top: 8px;
+    padding: 8px;
     color: #FFFFFF;
     font-weight: bold;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 QGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top left;
-    padding: 0 8px;
+    padding: 0 6px;
     color: #94A3B8;
-    font-size: 11px;
+    font-size: 10px;
 }
 
 QLabel {
@@ -166,7 +166,7 @@ QLabel {
 }
 
 QLabel#Title {
-    font-size: 18px;
+    font-size: 15px;
     font-weight: 800;
     color: #FFFFFF;
     letter-spacing: -0.5px;
@@ -174,7 +174,7 @@ QLabel#Title {
 
 QLabel#ErrorMsg {
     color: #EF4444;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
 }
 
@@ -188,10 +188,10 @@ QPushButton#SidebarBtn {
     background-color: transparent;
     color: #94A3B8;
     text-align: left;
-    padding: 8px 10px;
-    font-size: 11px;
+    padding: 6px 8px;
+    font-size: 10px;
     font-weight: 500;
-    border-radius: 6px;
+    border-radius: 5px;
     border: none;
     min-width: 0px;
 }
@@ -211,11 +211,11 @@ QPushButton#SidebarBtn:checked {
 QComboBox {
     background-color: #1A1F2C;
     border: 1px solid #2D3748;
-    border-radius: 6px;
-    padding: 6px 30px 6px 10px;
+    border-radius: 5px;
+    padding: 4px 24px 4px 8px;
     color: #FFFFFF;
-    min-height: 16px;
-    font-size: 12px;
+    min-height: 14px;
+    font-size: 11px;
 }
 
 QComboBox:hover {
@@ -229,18 +229,18 @@ QComboBox:focus {
 QComboBox::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: right center;
-    width: 26px;
+    width: 20px;
     border: none;
 }
 
 QComboBox::down-arrow {
     image: none;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 4px solid #94A3B8;
+    border-left: 3px solid transparent;
+    border-right: 3px solid transparent;
+    border-top: 3px solid #94A3B8;
     width: 0;
     height: 0;
-    margin-right: 8px;
+    margin-right: 6px;
 }
 
 QComboBox QAbstractItemView {
@@ -254,8 +254,8 @@ QComboBox QAbstractItemView {
 }
 
 QComboBox QAbstractItemView::item {
-    padding: 7px 10px;
-    border-radius: 4px;
+    padding: 5px 8px;
+    border-radius: 3px;
     color: #E2E8F0;
 }
 
@@ -274,13 +274,13 @@ QTableWidget {
     background-color: #151922;
     border: 1px solid #242B35;
     gridline-color: #1E293B;
-    border-radius: 6px;
+    border-radius: 5px;
     outline: none;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 QTableWidget::item {
-    padding: 6px 8px;
+    padding: 4px 6px;
     border-bottom: 1px solid #1E293B;
 }
 
@@ -292,11 +292,11 @@ QTableWidget::item:selected {
 QHeaderView::section {
     background-color: #0F131E;
     color: #94A3B8;
-    padding: 7px 8px;
+    padding: 5px 6px;
     border: none;
     border-bottom: 1px solid #242B35;
     font-weight: 600;
-    font-size: 11px;
+    font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -311,12 +311,12 @@ QTabWidget::pane {
 QTabBar::tab {
     background-color: #0F131E;
     color: #94A3B8;
-    padding: 7px 16px;
-    border-top-left-radius: 6px;
-    border-top-right-radius: 6px;
-    margin-right: 3px;
+    padding: 5px 12px;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    margin-right: 2px;
     font-weight: 500;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 QTabBar::tab:hover {
@@ -363,8 +363,8 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 QCheckBox {
     background-color: transparent;
     color: #94A3B8;
-    font-size: 12px;
-    spacing: 6px;
+    font-size: 11px;
+    spacing: 5px;
 }
 
 QCheckBox:hover {
@@ -372,8 +372,8 @@ QCheckBox:hover {
 }
 
 QCheckBox::indicator {
-    width: 15px;
-    height: 15px;
+    width: 13px;
+    height: 13px;
     border-radius: 3px;
     border: 1px solid #2D3748;
     background-color: #1A1F2C;

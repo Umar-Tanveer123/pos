@@ -235,11 +235,11 @@ class MainAppShell(QWidget):
         # 1. Sidebar Menu Panel
         self.sidebar = QWidget()
         self.sidebar.setObjectName("Sidebar")
-        self.sidebar.setFixedWidth(200)
+        self.sidebar.setFixedWidth(170)
         
         sidebar_layout = QVBoxLayout(self.sidebar)
-        sidebar_layout.setContentsMargins(12, 16, 12, 16)
-        sidebar_layout.setSpacing(4)
+        sidebar_layout.setContentsMargins(8, 12, 8, 12)
+        sidebar_layout.setSpacing(2)
 
         # Profile block
         self.profile_card = QFrame()
@@ -248,15 +248,15 @@ class MainAppShell(QWidget):
         profile_layout.setContentsMargins(10, 10, 10, 10)
         
         avatar_lbl = QLabel("👤")
-        avatar_lbl.setStyleSheet("font-size: 20px;")
+        avatar_lbl.setStyleSheet("font-size: 16px;")
         profile_layout.addWidget(avatar_lbl)
         
         details_layout = QVBoxLayout()
         details_layout.setSpacing(2)
         self.username_label = QLabel("Loading...")
-        self.username_label.setStyleSheet("color: white; font-weight: bold; font-size: 12px;")
+        self.username_label.setStyleSheet("color: white; font-weight: bold; font-size: 11px;")
         self.role_label = QLabel("Staff")
-        self.role_label.setStyleSheet("color: #a0a0a0; font-size: 11px;")
+        self.role_label.setStyleSheet("color: #a0a0a0; font-size: 10px;")
         details_layout.addWidget(self.username_label)
         details_layout.addWidget(self.role_label)
         profile_layout.addLayout(details_layout)
@@ -401,20 +401,20 @@ class MainAppShell(QWidget):
             QFrame {{
                 background-color: #1e1e1e;
                 border: 1px solid #2a2a2a;
-                border-left: 4px solid {accent_color};
-                border-radius: 6px;
-                padding: 12px;
+                border-left: 3px solid {accent_color};
+                border-radius: 5px;
+                padding: 8px;
             }}
         """)
         card_layout = QHBoxLayout(card)
-        card_layout.setContentsMargins(8, 8, 8, 8)
+        card_layout.setContentsMargins(6, 4, 6, 4)
         
         text_layout = QVBoxLayout()
-        text_layout.setSpacing(2)
+        text_layout.setSpacing(1)
         title_lbl = QLabel(title)
-        title_lbl.setStyleSheet("color: #a0a0a0; font-size: 11px; font-weight: 500; border: none; background: transparent;")
+        title_lbl.setStyleSheet("color: #a0a0a0; font-size: 10px; font-weight: 500; border: none; background: transparent;")
         val_lbl = QLabel(value)
-        val_lbl.setStyleSheet("color: white; font-size: 16px; font-weight: bold; border: none; background: transparent;")
+        val_lbl.setStyleSheet("color: white; font-size: 13px; font-weight: bold; border: none; background: transparent;")
         
         # Save reference to val_label
         card.val_label = val_lbl
@@ -426,7 +426,7 @@ class MainAppShell(QWidget):
         card_layout.addStretch()
         
         icon_lbl = QLabel(icon)
-        icon_lbl.setStyleSheet(f"font-size: 22px; color: {accent_color}; border: none; background: transparent;")
+        icon_lbl.setStyleSheet(f"font-size: 18px; color: {accent_color}; border: none; background: transparent;")
         card_layout.addWidget(icon_lbl)
         
         return card
@@ -435,8 +435,8 @@ class MainAppShell(QWidget):
         # Index 0: Dashboard Screen (Premium Redesign)
         self.dashboard_screen = QWidget()
         dash_layout = QVBoxLayout(self.dashboard_screen)
-        dash_layout.setContentsMargins(20, 20, 20, 20)
-        dash_layout.setSpacing(12)
+        dash_layout.setContentsMargins(12, 12, 12, 12)
+        dash_layout.setSpacing(8)
         
         header_widget = QWidget()
         header_layout = QHBoxLayout(header_widget)
@@ -444,9 +444,9 @@ class MainAppShell(QWidget):
         
         title_layout = QVBoxLayout()
         welcome_hdr = QLabel("Welcome to POS Dashboard")
-        welcome_hdr.setStyleSheet("font-size: 18px; font-weight: bold; color: white;")
+        welcome_hdr.setStyleSheet("font-size: 15px; font-weight: bold; color: white;")
         welcome_sub = QLabel("Real-time operations, inventory, and location analytics.")
-        welcome_sub.setStyleSheet("color: #a0a0a0; font-size: 12px; margin-top: 2px;")
+        welcome_sub.setStyleSheet("color: #a0a0a0; font-size: 11px; margin-top: 1px;")
         title_layout.addWidget(welcome_hdr)
         title_layout.addWidget(welcome_sub)
         header_layout.addLayout(title_layout)
@@ -492,7 +492,7 @@ class MainAppShell(QWidget):
         # Stats Cards Grid
         grid_widget = QWidget()
         self.stats_grid = QGridLayout(grid_widget)
-        self.stats_grid.setSpacing(10)
+        self.stats_grid.setSpacing(6)
         self.stats_grid.setContentsMargins(0, 0, 0, 0)
         
         self.cards = {}
@@ -682,7 +682,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Offline POS System")
-        self.setMinimumSize(1100, 700)
+        self.setMinimumSize(1024, 600)
 
         # Stacked widget for the top-level windows (Login vs Main Shell)
         self.stacked_widget = QStackedWidget()
