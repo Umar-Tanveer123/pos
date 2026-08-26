@@ -66,6 +66,7 @@ QPushButton {
     padding: 7px 16px;
     font-size: 12px;
     font-weight: 600;
+    min-width: 80px;
 }
 
 QPushButton:hover {
@@ -82,10 +83,12 @@ QPushButton#EditAction {
     color: #94A3B8;
     border: 1px solid #334155;
     border-radius: 4px;
-    padding: 3px 10px;
+    padding: 3px 8px;
     font-size: 11px;
     font-weight: 600;
     min-height: 22px;
+    min-width: 52px;
+    max-width: 64px;
 }
 
 QPushButton#EditAction:hover {
@@ -99,10 +102,12 @@ QPushButton#DeleteAction {
     color: #FCA5A5;
     border: 1px solid #4E2323;
     border-radius: 4px;
-    padding: 3px 10px;
+    padding: 3px 8px;
     font-size: 11px;
     font-weight: 600;
     min-height: 22px;
+    min-width: 52px;
+    max-width: 64px;
 }
 
 QPushButton#DeleteAction:hover {
@@ -116,10 +121,12 @@ QPushButton#ViewAction {
     color: #A7F3D0;
     border: 1px solid #047857;
     border-radius: 4px;
-    padding: 3px 10px;
+    padding: 3px 8px;
     font-size: 11px;
     font-weight: 600;
     min-height: 22px;
+    min-width: 52px;
+    max-width: 64px;
 }
 
 QPushButton#ViewAction:hover {
@@ -181,11 +188,12 @@ QPushButton#SidebarBtn {
     background-color: transparent;
     color: #94A3B8;
     text-align: left;
-    padding: 8px 12px;
-    font-size: 12px;
+    padding: 8px 10px;
+    font-size: 11px;
     font-weight: 500;
     border-radius: 6px;
     border: none;
+    min-width: 0px;
 }
 
 QPushButton#SidebarBtn:hover {
