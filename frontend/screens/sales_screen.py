@@ -181,93 +181,136 @@ class PrintPreviewDialog(QDialog):
         tmpl = self.tmpl_combo.currentData()
         if not tmpl:
             return
-            
-        html = f"""
+
+        # Load business settings for header
+        try:
+            settings = client.get_settings()
+        except Exception:
+            settings = {}
+
+        biz_name = tmpl.get("business_name") or settings.get("business_name") or "SALE RECEIPT"
+        biz_address = tmpl.get("business_address") or settings.get("business_address") or ""
+        biz_phone = tmpl.get("business_phone") or settings.get("business_phone") or ""
+        header_text = tmpl.get("header_text") or "SALE RECEIPT"
+        footer_text = tmpl.get("footer_text") or "<<Thank you for your Shopping>>"
+
+        # Load sale details
+        sale_date = self.sale.get("date", "")
+        try:
+            from datetime import datetime
+            dt = datetime.fromisoformat(sale_date.replace("Z", "+00:00"))
+            formatted_date = dt.strftime("%d-%b-%Y %I:%M:%S %p")
+        except Exception:
+            formatted_date = sale_date
+
+        # Load customer
+        cust_name = "Walk-in Customer"
+        try:
+            cust = client.get_customer(self.sale["customer_id"])
+            if cust:
+                cust_name = cust["name"]
+        except Exception:
+            pass
+
+        html = """
         <html>
         <head>
         <style>
-            body {{ font-family: sans-serif; padding: 20px; }}
-            .header {{ text-align: center; margin-bottom: 20px; }}
-            .info {{ margin-bottom: 20px; }}
-            table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
-            th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-            th {{ background-color: #f2f2f2; }}
-            .totals {{ text-align: right; }}
-            .footer {{ text-align: center; margin-top: 30px; font-size: 12px; color: #555; }}
+            body { font-family: 'Courier New', monospace; font-size: 12px; width: 350px; margin: 0 auto; padding: 10px; color: #000; }
+            .center { text-align: center; }
+            .bold { font-weight: bold; }
+            .line { border-top: 1px dashed #000; margin: 6px 0; }
+            table { width: 100%; border-collapse: collapse; }
+            th { font-weight: bold; text-align: left; border-bottom: 1px solid #000; padding: 2px 4px; font-size: 11px; }
+            td { padding: 2px 4px; font-size: 11px; }
+            .num { text-align: right; }
+            .total-row { font-weight: bold; border-top: 1px solid #000; }
+            .grand { font-size: 15px; font-weight: bold; text-align: right; padding: 6px 0; }
+            .footer { text-align: center; margin-top: 12px; font-style: italic; font-size: 11px; }
         </style>
         </head>
         <body>
         """
-        
+
         # Header
-        html += "<div class='header'>"
-        if tmpl["show_logo"] and tmpl.get("logo_path"):
-            html += f"<img src='{tmpl['logo_path']}' height='50'><br>"
-        html += f"<h2>{tmpl.get('header_text') or 'INVOICE'}</h2>"
-        if tmpl.get("business_name"):
-            html += f"<b>{tmpl['business_name']}</b><br>"
-        if tmpl.get("business_address"):
-            html += f"{tmpl['business_address']}<br>"
-        if tmpl.get("business_phone"):
-            html += f"Tel: {tmpl['business_phone']}<br>"
-        html += f"Invoice #: {self.sale['internal_id']}<br>"
-        html += f"Date: {self.sale['date'][:16].replace('T', ' ')}"
+        html += f"<div class='center'><div class='bold' style='font-size:15px;'>{header_text}</div>"
+        html += f"<div class='bold' style='font-size:13px;'>{biz_name}</div>"
+        if biz_address:
+            html += f"<div>Address: {biz_address}</div>"
+        if biz_phone:
+            html += f"<div>Ph: {biz_phone}</div>"
         html += "</div>"
-        
-        # Customer Info
-        if tmpl["show_customer_info"]:
-            cust = client.get_customer(self.sale["customer_id"])
-            if cust:
-                html += f"<div class='info'><b>Bill To:</b><br>{cust['name']}<br>"
-                if cust.get('phone'): html += f"{cust['phone']}<br>"
-                html += "</div>"
-                
+
+        html += "<div class='line'></div>"
+        html += f"<div>Mop: Cash Sales &nbsp;&nbsp;&nbsp; Receipt: {self.sale['internal_id']}</div>"
+        html += f"<div>Date: {formatted_date}</div>"
+        if tmpl.get("show_customer_info"):
+            html += f"<div>Customer: {cust_name}</div>"
+        html += "<div class='line'></div>"
+
         # Items Table
-        html += "<table><tr><th>Product</th>"
-        if tmpl["show_sku"]: html += "<th>SKU</th>"
-        html += "<th>Qty</th><th>Price</th>"
-        if tmpl["show_discount_column"]: html += "<th>Discount</th>"
-        html += "<th>Total</th></tr>"
-        
-        for item in self.sale.get("items", []):
-            prod = None
-            for p in client.get_products(is_active=None):
-                if p["id"] == item["product_id"]:
-                    prod = p
-                    break
-            
-            p_name = prod["name"] if prod else f"ID: {item['product_id']}"
-            sku = prod.get("sku", "-") if prod else "-"
-            
-            html += f"<tr><td>{p_name}</td>"
-            if tmpl["show_sku"]: html += f"<td>{sku}</td>"
-            html += f"<td>{item['quantity']}</td><td>{item['unit_price']:.2f}</td>"
-            if tmpl["show_discount_column"]: html += f"<td>{item['discount']:.2f}</td>"
-            html += f"<td>{item['total']:.2f}</td></tr>"
-            
+        html += "<table>"
+        html += "<tr><th>Sr.</th><th>Product Name</th><th class='num'>Qty</th><th class='num'>Price</th><th class='num'>Disc</th><th class='num'>Amt</th></tr>"
+
+        # Load product names
+        try:
+            prod_list = client.get_products(is_active=None)
+            prod_map = {p["id"]: p for p in prod_list}
+        except Exception:
+            prod_map = {}
+
+        grand_total = 0.0
+        total_qty = 0.0
+        for sr, item in enumerate(self.sale.get("items", []), 1):
+            prod = prod_map.get(item["product_id"], {})
+            p_name = prod.get("name", f"Product #{item['product_id']}")
+            if item.get("variant_id"):
+                for var in prod.get("variants", []):
+                    if var["id"] == item["variant_id"]:
+                        p_name += f" {var['name']}"
+                        break
+
+            qty = item["quantity"]
+            price = item["unit_price"]
+            disc = item.get("discount", 0.0)
+            amt = item["total"]
+            grand_total += amt
+            total_qty += qty
+
+            html += f"<tr>"
+            html += f"<td>{sr}-</td>"
+            html += f"<td>{p_name}</td>"
+            html += f"<td class='num'>{qty:.0f}</td>"
+            html += f"<td class='num'>{price:.2f}</td>"
+            html += f"<td class='num'>{disc:.2f}</td>"
+            html += f"<td class='num'>{amt:.2f}</td>"
+            html += f"</tr>"
+
         html += "</table>"
-        
-        # Totals
-        html += f"<div class='totals'>"
-        html += f"<b>Total: Rs. {self.sale['total_amount']:,.2f}</b><br>"
-        
-        if tmpl["show_payment_info"]:
+        html += "<div class='line'></div>"
+
+        # Totals row
+        html += f"<table>"
+        html += f"<tr class='total-row'><td>Total Amount Sold Items</td><td class='num' colspan='5'>{grand_total:.2f}</td></tr>"
+        html += f"<tr><td>Total Qty: {total_qty:.0f}</td><td class='num' colspan='5'>{grand_total:.2f} &nbsp; 0 &nbsp; {grand_total:.2f}</td></tr>"
+        html += "</table>"
+
+        overall_discount = self.sale.get("discount", 0.0)
+        net_total = self.sale.get("total_amount", grand_total)
+        html += f"<div class='grand'>Net Total: &nbsp; {net_total:,.2f}</div>"
+
+        if tmpl.get("show_payment_info"):
+            html += "<div class='line'></div>"
             payments = self.sale.get("payments", [])
             if payments:
-                html += "<br><b>Payments:</b><br>"
                 for p in payments:
-                    html += f"{p['payment_method']}: Rs. {p['amount']:,.2f}<br>"
-            else:
-                html += f"Paid: Rs. {self.sale['paid_amount']:,.2f}<br>"
-            html += f"<b>Balance: Rs. {self.sale['balance_owed']:,.2f}</b><br>"
-        html += "</div>"
-        
-        if tmpl["show_notes"] and self.sale.get("notes"):
-            html += f"<div class='info'><b>Notes:</b><br>{self.sale['notes']}</div>"
-            
-        if tmpl.get("footer_text"):
-            html += f"<div class='footer'>{tmpl['footer_text']}</div>"
-            
+                    html += f"<div>{p['payment_method']}: Rs. {p['amount']:,.2f}</div>"
+            paid = self.sale.get("paid_amount", 0)
+            bal = self.sale.get("balance_owed", 0)
+            html += f"<div>Paid: Rs. {paid:,.2f} &nbsp;&nbsp; Balance: Rs. {bal:,.2f}</div>"
+
+        html += f"<div class='line'></div>"
+        html += f"<div class='footer'>{footer_text}</div>"
         html += "</body></html>"
         self.preview.setHtml(html)
         
@@ -546,7 +589,26 @@ class SalesScreen(QWidget):
         self.customer_combo.currentIndexChanged.connect(self.on_customer_changed)
         cust_layout.addWidget(self.customer_combo)
         top_row.addLayout(cust_layout, stretch=2)
-        
+
+        # Quick customer name entry
+        quick_cust_layout = QVBoxLayout()
+        quick_cust_layout.setSpacing(4)
+        quick_cust_layout.addWidget(QLabel("Quick Customer Name (optional):"))
+        quick_row = QHBoxLayout()
+        quick_row.setSpacing(4)
+        self.quick_cust_input = QLineEdit()
+        self.quick_cust_input.setPlaceholderText("Type name & press Enter or + to save...")
+        self.quick_cust_input.setStyleSheet("QLineEdit { font-size: 12px; padding: 5px; }")
+        self.quick_cust_input.returnPressed.connect(self.on_quick_customer_save)
+        quick_row.addWidget(self.quick_cust_input)
+        quick_cust_btn = QPushButton("+")
+        quick_cust_btn.setFixedWidth(32)
+        quick_cust_btn.setStyleSheet("QPushButton { background-color: #00b894; color: white; font-weight: bold; font-size: 14px; padding: 4px; border-radius: 4px; min-width: 0; }")
+        quick_cust_btn.clicked.connect(self.on_quick_customer_save)
+        quick_row.addWidget(quick_cust_btn)
+        quick_cust_layout.addLayout(quick_row)
+        top_row.addLayout(quick_cust_layout, stretch=2)
+
         layout.addLayout(top_row)
         
         # --- Main Split Layout ---
@@ -951,6 +1013,35 @@ class SalesScreen(QWidget):
             cust_type = selected_cust.get('customer_type_name') or "Retail"
             self.update_cart_prices(cust_type)
             
+    def on_quick_customer_save(self):
+        name = self.quick_cust_input.text().strip()
+        if not name:
+            QMessageBox.warning(self, "Name Required", "Please enter a customer name.")
+            return
+
+        # Create customer via API (walk-in, retail type by default)
+        payload = {"name": name, "phone": "", "address": ""}
+        success, res = client.create_customer(payload)
+        if success:
+            new_id = res.get("id")
+            # Reload customers list and select the new one
+            self.all_customers = client.get_customers()
+            self.customer_combo.blockSignals(True)
+            self.customer_combo.clear()
+            select_idx = 0
+            for i, cust in enumerate(self.all_customers):
+                display = f"{cust['name']} ({cust['internal_id']})"
+                self.customer_combo.addItem(display, cust["id"])
+                if cust["id"] == new_id:
+                    select_idx = i
+            self.customer_combo.setCurrentIndex(select_idx)
+            self.customer_combo.blockSignals(False)
+            self.on_customer_changed()
+            self.quick_cust_input.clear()
+            QMessageBox.information(self, "✅ Customer Saved", f"Customer '{name}' has been saved and selected.")
+        else:
+            QMessageBox.warning(self, "Error", f"Failed to create customer: {res}")
+
     def update_cart_prices(self, customer_type):
         for item in self.cart_items:
             prod = item["product"]

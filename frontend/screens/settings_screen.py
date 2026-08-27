@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget,
-    QTableWidgetItem, QHeaderView, QTabWidget, QLineEdit, QFormLayout, QMessageBox
+    QTableWidgetItem, QHeaderView, QTabWidget, QLineEdit, QFormLayout,
+    QMessageBox, QComboBox, QCheckBox, QScrollArea, QFrame, QTextEdit
 )
 from PySide6.QtCore import Qt, QDate
 from frontend.api_client import client
@@ -39,6 +40,11 @@ class SettingsScreen(QWidget):
         self.tab_audit = QWidget()
         self.setup_audit_tab(self.tab_audit)
         self.tabs.addTab(self.tab_audit, "Audit Logs")
+
+        # 4. Invoice Templates Tab
+        self.tab_invoice = QWidget()
+        self.setup_invoice_tab(self.tab_invoice)
+        self.tabs.addTab(self.tab_invoice, "🧾 Invoice Templates")
         
         layout.addWidget(self.tabs)
         self.tabs.currentChanged.connect(self.on_tab_changed)
@@ -218,3 +224,158 @@ class SettingsScreen(QWidget):
                 self.audit_table.setItem(i, 5, QTableWidgetItem(details))
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to load audit logs: {e}")
+
+    # --- Invoice Templates Tab ---
+    def setup_invoice_tab(self, parent):
+        layout = QVBoxLayout(parent)
+        layout.setSpacing(12)
+
+        title = QLabel("Customize your invoice/receipt templates for printing.")
+        title.setStyleSheet("color: #a0a0a0; font-size: 11px;")
+        layout.addWidget(title)
+
+        # Template selector
+        sel_row = QHBoxLayout()
+        sel_row.addWidget(QLabel("Select Template to Edit:"))
+        self.tmpl_selector = QComboBox()
+        self.tmpl_selector.addItems([
+            "1. Thermal Receipt (Default)",
+            "2. Full Invoice (A4 Style)",
+            "3. Simple Bill (Minimal)"
+        ])
+        self.tmpl_selector.currentIndexChanged.connect(self.load_invoice_template)
+        sel_row.addWidget(self.tmpl_selector)
+        sel_row.addStretch()
+        layout.addLayout(sel_row)
+
+        # Scroll area for fields
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; }")
+        container = QWidget()
+        form = QFormLayout(container)
+        form.setSpacing(10)
+
+        self.tmpl_fields = {}
+
+        def add_field(key, label, placeholder=""):
+            inp = QLineEdit()
+            inp.setPlaceholderText(placeholder)
+            form.addRow(QLabel(label + ":"), inp)
+            self.tmpl_fields[key] = inp
+
+        add_field("name", "Template Name", "e.g. Thermal Receipt")
+        add_field("business_name", "Business / Store Name", "e.g. A-B General Store")
+        add_field("business_address", "Address", "e.g. Rail Bazar, Gujranwala")
+        add_field("business_phone", "Phone Number(s)", "e.g. 0324-8650973")
+        add_field("header_text", "Receipt Header Title", "e.g. SALE RECEIPT")
+        add_field("footer_text", "Footer Message", "e.g. <<Thank you for your Shopping>>")
+
+        # Toggle checkboxes
+        self.tmpl_checks = {}
+        check_configs = [
+            ("show_customer_info", "Show Customer Name on Receipt"),
+            ("show_sku", "Show Product SKU Code"),
+            ("show_discount_column", "Show Discount Column"),
+            ("show_payment_info", "Show Payment Method Details"),
+            ("show_logo", "Show Logo (if configured)"),
+            ("show_notes", "Show Sale Notes"),
+        ]
+        for key, label in check_configs:
+            cb = QCheckBox(label)
+            cb.setStyleSheet("color: #E2E8F0;")
+            form.addRow("", cb)
+            self.tmpl_checks[key] = cb
+
+        scroll.setWidget(container)
+        layout.addWidget(scroll)
+
+        # Save button
+        btn_row = QHBoxLayout()
+        save_btn = QPushButton("💾 Save Template")
+        save_btn.setStyleSheet("background-color: #6c5ce7; color: white; padding: 8px 20px; font-weight: bold; border-radius: 4px;")
+        save_btn.clicked.connect(self.save_invoice_template)
+        btn_row.addStretch()
+        btn_row.addWidget(save_btn)
+        layout.addLayout(btn_row)
+
+        # Built-in defaults per template
+        self._tmpl_defaults = [
+            {
+                "name": "Thermal Receipt",
+                "business_name": "", "business_address": "", "business_phone": "",
+                "header_text": "SALE RECEIPT", "footer_text": "<<Thank you for your Shopping>>",
+                "show_customer_info": True, "show_sku": False,
+                "show_discount_column": True, "show_payment_info": True,
+                "show_logo": False, "show_notes": False, "is_default": True,
+            },
+            {
+                "name": "Full Invoice (A4)",
+                "business_name": "", "business_address": "", "business_phone": "",
+                "header_text": "INVOICE", "footer_text": "Thank you for your business!",
+                "show_customer_info": True, "show_sku": True,
+                "show_discount_column": True, "show_payment_info": True,
+                "show_logo": False, "show_notes": True, "is_default": False,
+            },
+            {
+                "name": "Simple Bill (Minimal)",
+                "business_name": "", "business_address": "", "business_phone": "",
+                "header_text": "BILL", "footer_text": "",
+                "show_customer_info": False, "show_sku": False,
+                "show_discount_column": False, "show_payment_info": False,
+                "show_logo": False, "show_notes": False, "is_default": False,
+            },
+        ]
+
+        # Load server templates and merge with defaults
+        self._server_templates = []
+        self.load_invoice_template(0)
+
+    def load_invoice_template(self, index):
+        # Try to load from server, fall back to built-in defaults
+        try:
+            templates = client.get_invoice_templates()
+            if templates and index < len(templates):
+                t = templates[index]
+            else:
+                t = self._tmpl_defaults[index]
+        except Exception:
+            t = self._tmpl_defaults[index]
+
+        self.tmpl_fields["name"].setText(t.get("name", ""))
+        self.tmpl_fields["business_name"].setText(t.get("business_name") or "")
+        self.tmpl_fields["business_address"].setText(t.get("business_address") or "")
+        self.tmpl_fields["business_phone"].setText(t.get("business_phone") or "")
+        self.tmpl_fields["header_text"].setText(t.get("header_text") or "")
+        self.tmpl_fields["footer_text"].setText(t.get("footer_text") or "")
+
+        for key, cb in self.tmpl_checks.items():
+            cb.setChecked(bool(t.get(key, False)))
+
+    def save_invoice_template(self):
+        index = self.tmpl_selector.currentIndex()
+        payload = {
+            "name": self.tmpl_fields["name"].text().strip(),
+            "business_name": self.tmpl_fields["business_name"].text().strip(),
+            "business_address": self.tmpl_fields["business_address"].text().strip(),
+            "business_phone": self.tmpl_fields["business_phone"].text().strip(),
+            "header_text": self.tmpl_fields["header_text"].text().strip(),
+            "footer_text": self.tmpl_fields["footer_text"].text().strip(),
+            "is_default": (index == 0),
+        }
+        for key, cb in self.tmpl_checks.items():
+            payload[key] = cb.isChecked()
+
+        try:
+            templates = client.get_invoice_templates()
+            if templates and index < len(templates):
+                success, res = client.update_invoice_template(templates[index]["id"], payload)
+            else:
+                success, res = client.create_invoice_template(payload)
+
+            if success:
+                QMessageBox.information(self, "✅ Saved", f"Template '{payload['name']}' saved successfully!")
+            else:
+                QMessageBox.warning(self, "Error", f"Failed to save template: {res}")
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Could not save template: {e}")

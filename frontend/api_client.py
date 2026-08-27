@@ -429,6 +429,13 @@ class APIClient:
             return True, response.json()
         return False, response.json().get("detail", "Failed to update template")
 
+    def create_invoice_template(self, data: dict):
+        url = f"{self.base_url}/sales/templates"
+        response = requests.post(url, json=data, headers=self.get_headers())
+        if response.status_code in (200, 201):
+            return True, response.json()
+        return False, response.json().get("detail", "Failed to create template")
+
     def get_returnable_items(self, sale_id: int):
         url = f"{self.base_url}/customer-returns/sale/{sale_id}/returnable"
         response = requests.get(url, headers=self.get_headers())

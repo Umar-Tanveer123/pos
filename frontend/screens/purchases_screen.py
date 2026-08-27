@@ -550,7 +550,9 @@ class PurchasesScreen(QWidget):
         self.items_table.setRowCount(len(self.purchase_items))
         
         for row, item in enumerate(self.purchase_items):
-            self.items_table.setItem(row, 0, QTableWidgetItem(item["name"]))
+            name_widget = QTableWidgetItem(item["name"])
+            name_widget.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+            self.items_table.setItem(row, 0, name_widget)
             
             sku_widget = QTableWidgetItem(item["sku"])
             sku_widget.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)

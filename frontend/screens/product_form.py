@@ -480,6 +480,29 @@ class ProductForm(QDialog):
             QMessageBox.warning(self, "Validation Error", "Product Name is required.")
             return
 
+        # --- Price Sanity Check ---
+        cost = self.cost_spin.value()
+        retail = self.retail_spin.value()
+        wholesale = self.wholesale_spin.value()
+        special = self.special_spin.value()
+
+        price_errors = []
+        if retail > 0 and cost > retail:
+            price_errors.append(f"• Retail Price (Rs. {retail:.2f}) is less than Purchase Price (Rs. {cost:.2f})")
+        if wholesale > 0 and cost > wholesale:
+            price_errors.append(f"• Wholesale Price (Rs. {wholesale:.2f}) is less than Purchase Price (Rs. {cost:.2f})")
+        if special > 0 and cost > special:
+            price_errors.append(f"• Special Price (Rs. {special:.2f}) is less than Purchase Price (Rs. {cost:.2f})")
+
+        if price_errors:
+            QMessageBox.critical(
+                self, "❌ Invalid Pricing",
+                "Cannot save product! Selling price(s) cannot be less than the Purchase/Cost Price:\n\n" +
+                "\n".join(price_errors) +
+                "\n\nPlease correct the prices before saving."
+            )
+            return
+
         sku = self.sku_input.text().strip() or None
         barcode = self.barcode_input.text().strip() or None
         category_id = self.cat_combo.currentData()
