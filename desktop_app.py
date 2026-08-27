@@ -39,22 +39,34 @@ def init_database():
         # 1. Try to create tables (this only creates missing tables)
         Base.metadata.create_all(bind=engine)
         
-        # 2. Test if the database schema is up-to-date by querying new columns
+        # 2. Safely apply schema upgrades/migrations without dropping any existing tables or deleting data
         db = SessionLocal()
-        schema_ok = True
         try:
-            db.execute("SELECT is_active FROM customers LIMIT 1")
-            db.execute("SELECT secondary_unit_id, conversion_factor FROM products LIMIT 1")
-        except Exception:
-            schema_ok = False
+            from sqlalchemy import text
+            # Upgrade customers table with is_active
+            try:
+                db.execute(text("ALTER TABLE customers ADD COLUMN is_active BOOLEAN DEFAULT 1"))
+                db.commit()
+                print("Database Migration: Added is_active to customers.")
+            except Exception:
+                db.rollback()
+
+            # Upgrade products table with secondary_unit_id & conversion_factor
+            try:
+                db.execute(text("ALTER TABLE products ADD COLUMN secondary_unit_id INTEGER"))
+                db.commit()
+                print("Database Migration: Added secondary_unit_id to products.")
+            except Exception:
+                db.rollback()
+
+            try:
+                db.execute(text("ALTER TABLE products ADD COLUMN conversion_factor FLOAT"))
+                db.commit()
+                print("Database Migration: Added conversion_factor to products.")
+            except Exception:
+                db.rollback()
         finally:
             db.close()
-            
-        # 3. If schema is outdated, perform a self-healing reset (drop and recreate all tables)
-        if not schema_ok:
-            print("Database Setup: Schema mismatch detected. Performing self-healing database reset...")
-            Base.metadata.drop_all(bind=engine)
-            Base.metadata.create_all(bind=engine)
             
         # 4. Seed initial data (Roles & Admin Account)
         db = SessionLocal()
