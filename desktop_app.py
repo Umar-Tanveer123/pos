@@ -68,9 +68,13 @@ def init_database():
         finally:
             db.close()
             
-        # 4. Seed initial data (Roles & Admin Account)
+        # 4. Seed initial data (Roles & Admin Account & Customer Types & Settings)
         db = SessionLocal()
         try:
+            # Seed main defaults (Customer Types, Walk-in, System Settings, etc.)
+            from backend.main import seed_database
+            seed_database(db)
+
             admin_role = db.query(Role).filter(Role.name == "Admin").first()
             if not admin_role:
                 admin_role = Role(name="Admin", description="Full system access")

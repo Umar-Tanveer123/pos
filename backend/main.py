@@ -7,68 +7,69 @@ import backend.models
 # Create tables if they do not exist
 Base.metadata.create_all(bind=engine)
 
-# Seed customer types and default walk-in customer
-from backend.core.database import SessionLocal
-from backend.models.partner import CustomerType, Customer
+def seed_database(db):
+    try:
+        # 1. Seed Roles (SRS 43)
+        from backend.models.auth import Role
+        app_roles = ["Owner", "Admin", "Manager", "Cashier", "Storekeeper", "Purchase Employee", "Accountant"]
+        for r_name in app_roles:
+            if not db.query(Role).filter(Role.name == r_name).first():
+                db.add(Role(name=r_name))
+        db.commit()
+
+        # 2. Customer Types
+        types = ["Retail", "Wholesale", "Special"]
+        for t_name in types:
+            if not db.query(CustomerType).filter(CustomerType.name == t_name).first():
+                db.add(CustomerType(name=t_name))
+        db.commit()
+        
+        # 3. Walk-in Customer
+        retail_type = db.query(CustomerType).filter(CustomerType.name == "Retail").first()
+        if retail_type:
+            walkin = db.query(Customer).filter(Customer.name == "Walk-in Customer").first()
+            if not walkin:
+                db.add(Customer(
+                    internal_id="CUS-000000",
+                    name="Walk-in Customer",
+                    phone="—",
+                    address="—",
+                    customer_type_id=retail_type.id,
+                    credit_limit=0.0,
+                    balance=0.0,
+                    is_active=1
+                ))
+                db.commit()
+        # 4. Seed Settings & Prefixes (SRS 49 & 50)
+        from backend.models.setting import SystemSetting
+        default_settings = {
+            "business_name": "Antigravity POS Ltd.",
+            "business_address": "123 Main St, Central City",
+            "business_phone": "+92 300 1234567",
+            "currency": "Rs.",
+            "prefix_product": "PRD-",
+            "prefix_customer": "CUS-",
+            "prefix_supplier": "SUP-",
+            "prefix_invoice": "INV-",
+            "prefix_purchase": "PUR-",
+            "prefix_return": "RET-",
+            "prefix_supplier_return": "SRET-",
+            "prefix_transfer": "TRF-",
+            "prefix_adjustment": "ADJ-",
+            "prefix_customer_pay": "CPAY-",
+            "prefix_supplier_pay": "SPAY-",
+            "prefix_expense": "EXP-"
+        }
+        for k, v in default_settings.items():
+            if not db.query(SystemSetting).filter(SystemSetting.key == k).first():
+                db.add(SystemSetting(key=k, value=v))
+        db.commit()
+    except Exception as e:
+        print(f"Error seeding default customer/types: {e}")
+
 db = SessionLocal()
 try:
-    # 1. Seed Roles (SRS 43)
-    from backend.models.auth import Role
-    app_roles = ["Owner", "Admin", "Manager", "Cashier", "Storekeeper", "Purchase Employee", "Accountant"]
-    for r_name in app_roles:
-        if not db.query(Role).filter(Role.name == r_name).first():
-            db.add(Role(name=r_name))
-    db.commit()
-
-    # 2. Customer Types
-    types = ["Retail", "Wholesale", "Special"]
-    for t_name in types:
-        if not db.query(CustomerType).filter(CustomerType.name == t_name).first():
-            db.add(CustomerType(name=t_name))
-    db.commit()
-    
-    # 3. Walk-in Customer
-    retail_type = db.query(CustomerType).filter(CustomerType.name == "Retail").first()
-    if retail_type:
-        walkin = db.query(Customer).filter(Customer.name == "Walk-in Customer").first()
-        if not walkin:
-            db.add(Customer(
-                internal_id="CUS-000000",
-                name="Walk-in Customer",
-                phone="—",
-                address="—",
-                customer_type_id=retail_type.id,
-                credit_limit=0.0,
-                balance=0.0,
-                is_active=1
-            ))
-            db.commit()
-    # 4. Seed Settings & Prefixes (SRS 49 & 50)
-    from backend.models.setting import SystemSetting
-    default_settings = {
-        "business_name": "Antigravity POS Ltd.",
-        "business_address": "123 Main St, Central City",
-        "business_phone": "+92 300 1234567",
-        "currency": "Rs.",
-        "prefix_product": "PRD-",
-        "prefix_customer": "CUS-",
-        "prefix_supplier": "SUP-",
-        "prefix_invoice": "INV-",
-        "prefix_purchase": "PUR-",
-        "prefix_return": "RET-",
-        "prefix_supplier_return": "SRET-",
-        "prefix_transfer": "TRF-",
-        "prefix_adjustment": "ADJ-",
-        "prefix_customer_pay": "CPAY-",
-        "prefix_supplier_pay": "SPAY-",
-        "prefix_expense": "EXP-"
-    }
-    for k, v in default_settings.items():
-        if not db.query(SystemSetting).filter(SystemSetting.key == k).first():
-            db.add(SystemSetting(key=k, value=v))
-    db.commit()
-except Exception as e:
-    print(f"Error seeding default customer/types: {e}")
+    seed_database(db)
 finally:
     db.close()
 
