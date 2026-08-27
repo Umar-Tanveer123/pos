@@ -13,7 +13,7 @@ class ProductForm(QDialog):
         super().__init__(parent)
         self.product_data = product_data
         self.setWindowTitle("Edit Product" if product_data else "Add Product")
-        self.setMinimumSize(850, 750)
+        self.setMinimumSize(750, 550)
         
         self.categories = []
         self.subcategories = []

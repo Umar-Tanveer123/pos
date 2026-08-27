@@ -2,7 +2,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QLineEdit, QMessageBox, QDialog,
     QFormLayout, QTextEdit, QComboBox, QTabWidget, QFrame, QGridLayout,
-    QDoubleSpinBox, QCompleter, QTextBrowser, QCheckBox
+    QDoubleSpinBox, QCompleter, QTextBrowser, QCheckBox, QScrollArea
 )
 from PySide6.QtCore import Qt
 from datetime import datetime
@@ -540,9 +540,9 @@ class SalesScreen(QWidget):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
         
-        # --- Top controls row ---
-        top_row = QHBoxLayout()
-        top_row.setSpacing(15)
+        # --- Top controls row 1 ---
+        row1 = QHBoxLayout()
+        row1.setSpacing(15)
         
         # Barcode lookup
         barcode_layout = QVBoxLayout()
@@ -553,7 +553,7 @@ class SalesScreen(QWidget):
         self.barcode_input.setStyleSheet("QLineEdit { font-size: 15px; padding: 8px; }")
         self.barcode_input.returnPressed.connect(self.on_barcode_scanned)
         barcode_layout.addWidget(self.barcode_input)
-        top_row.addLayout(barcode_layout, stretch=2)
+        row1.addLayout(barcode_layout, stretch=2)
         
         # Product Search dropdown
         search_layout = QVBoxLayout()
@@ -571,7 +571,7 @@ class SalesScreen(QWidget):
             completer.setCompletionMode(QCompleter.PopupCompletion)
             
         search_layout.addWidget(self.product_search_combo)
-        top_row.addLayout(search_layout, stretch=2)
+        row1.addLayout(search_layout, stretch=3)
         
         # Location Selector
         loc_layout = QVBoxLayout()
@@ -579,7 +579,13 @@ class SalesScreen(QWidget):
         loc_layout.addWidget(QLabel("Checkout Location:"))
         self.location_combo = QComboBox()
         loc_layout.addWidget(self.location_combo)
-        top_row.addLayout(loc_layout, stretch=1)
+        row1.addLayout(loc_layout, stretch=2)
+        
+        layout.addLayout(row1)
+
+        # --- Top controls row 2 ---
+        row2 = QHBoxLayout()
+        row2.setSpacing(15)
         
         # Customer Selector
         cust_layout = QVBoxLayout()
@@ -588,7 +594,7 @@ class SalesScreen(QWidget):
         self.customer_combo = QComboBox()
         self.customer_combo.currentIndexChanged.connect(self.on_customer_changed)
         cust_layout.addWidget(self.customer_combo)
-        top_row.addLayout(cust_layout, stretch=2)
+        row2.addLayout(cust_layout, stretch=1)
 
         # Quick customer name & type entry
         quick_cust_layout = QVBoxLayout()
@@ -614,9 +620,9 @@ class SalesScreen(QWidget):
         quick_cust_btn.clicked.connect(self.on_quick_customer_save)
         quick_row.addWidget(quick_cust_btn)
         quick_cust_layout.addLayout(quick_row)
-        top_row.addLayout(quick_cust_layout, stretch=2)
+        row2.addLayout(quick_cust_layout, stretch=1)
 
-        layout.addLayout(top_row)
+        layout.addLayout(row2)
         
         # --- Main Split Layout ---
         main_split = QHBoxLayout()
@@ -644,14 +650,27 @@ class SalesScreen(QWidget):
                 background-color: #181818;
                 border: 1px solid #2a2a2a;
                 border-radius: 8px;
-                padding: 15px;
+                padding: 5px;
             }
             QLabel {
                 border: none;
                 background: transparent;
             }
         """)
-        checkout_layout = QVBoxLayout(checkout_panel)
+        
+        panel_main_layout = QVBoxLayout(checkout_panel)
+        panel_main_layout.setContentsMargins(5, 5, 5, 5)
+        
+        checkout_scroll = QScrollArea()
+        checkout_scroll.setWidgetResizable(True)
+        checkout_scroll.setFrameShape(QFrame.NoFrame)
+        checkout_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        checkout_scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        
+        scroll_widget = QWidget()
+        scroll_widget.setStyleSheet("background: transparent;")
+        checkout_layout = QVBoxLayout(scroll_widget)
+        checkout_layout.setContentsMargins(10, 10, 10, 10)
         checkout_layout.setSpacing(12)
         
         # Customer Info card
@@ -739,6 +758,7 @@ class SalesScreen(QWidget):
                 font-weight: bold;
                 font-size: 13px;
                 padding: 10px;
+                min-height: 40px;
                 border-radius: 6px;
             }
             QPushButton:hover { background-color: #f1c40f; }
@@ -755,6 +775,7 @@ class SalesScreen(QWidget):
                 font-weight: bold;
                 font-size: 13px;
                 padding: 10px;
+                min-height: 40px;
                 border-radius: 6px;
             }
             QPushButton:hover {
@@ -766,6 +787,9 @@ class SalesScreen(QWidget):
         btn_action_layout.addWidget(self.btn_checkout)
         
         checkout_layout.addLayout(btn_action_layout)
+        
+        checkout_scroll.setWidget(scroll_widget)
+        panel_main_layout.addWidget(checkout_scroll)
         
         main_split.addWidget(checkout_panel, stretch=1)
         layout.addLayout(main_split)
