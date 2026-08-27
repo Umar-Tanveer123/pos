@@ -125,6 +125,24 @@ class InvoiceTemplateUpdate(BaseModel):
     show_sku: Optional[bool] = None
     paper_size: Optional[str] = None
 
+class InvoiceTemplateCreate(BaseModel):
+    name: str
+    is_default: Optional[bool] = False
+    header_text: Optional[str] = None
+    footer_text: Optional[str] = None
+    business_name: Optional[str] = None
+    business_address: Optional[str] = None
+    business_phone: Optional[str] = None
+    business_email: Optional[str] = None
+    show_logo: Optional[bool] = True
+    show_customer_info: Optional[bool] = True
+    show_payment_info: Optional[bool] = True
+    show_notes: Optional[bool] = True
+    show_discount_column: Optional[bool] = True
+    show_sku: Optional[bool] = False
+    paper_size: Optional[str] = "80mm"
+    template_type: Optional[str] = "Standard"
+
 # --- Endpoints ---
 
 @router.get("/payment-methods")
@@ -171,6 +189,26 @@ def update_invoice_template(
         db.query(InvoiceTemplate).filter(InvoiceTemplate.id != template_id).update({"is_default": False})
     
     db.commit()
+    db.refresh(tmpl)
+    return tmpl
+
+@router.post("/templates", response_model=InvoiceTemplateResponse, status_code=201)
+def create_invoice_template(
+    template_in: InvoiceTemplateCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    existing = db.query(InvoiceTemplate).filter(InvoiceTemplate.name == template_in.name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Template with this name already exists.")
+    tmpl = InvoiceTemplate(**template_in.model_dump())
+    db.add(tmpl)
+    db.commit()
+    
+    if template_in.is_default:
+        db.query(InvoiceTemplate).filter(InvoiceTemplate.id != tmpl.id).update({"is_default": False})
+        db.commit()
+        
     db.refresh(tmpl)
     return tmpl
 
