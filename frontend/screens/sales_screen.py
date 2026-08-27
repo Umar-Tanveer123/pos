@@ -728,7 +728,8 @@ class SalesScreen(QWidget):
         checkout_layout.addStretch()
         
         # Action Buttons
-        btn_action_layout = QHBoxLayout()
+        btn_action_layout = QVBoxLayout()
+        btn_action_layout.setSpacing(8)
         
         self.btn_drawer = QPushButton("🗄️ Open Drawer")
         self.btn_drawer.setStyleSheet("""
@@ -736,8 +737,8 @@ class SalesScreen(QWidget):
                 background-color: #f39c12;
                 color: white;
                 font-weight: bold;
-                font-size: 14px;
-                padding: 12px;
+                font-size: 13px;
+                padding: 10px;
                 border-radius: 6px;
             }
             QPushButton:hover { background-color: #f1c40f; }
@@ -752,8 +753,8 @@ class SalesScreen(QWidget):
                 background-color: #6c5ce7;
                 color: white;
                 font-weight: bold;
-                font-size: 14px;
-                padding: 12px;
+                font-size: 13px;
+                padding: 10px;
                 border-radius: 6px;
             }
             QPushButton:hover {

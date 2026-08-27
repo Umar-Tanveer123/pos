@@ -67,8 +67,8 @@ class ProductForm(QDialog):
                 color: #6c5ce7;
                 border: 1px solid #3a3a3a;
                 border-radius: 6px;
-                font-size: 13px;
-                padding: 8px 12px;
+                font-size: 11px;
+                padding: 4px 8px;
             }
             QPushButton:hover {
                 background-color: #6c5ce7;
@@ -93,8 +93,8 @@ class ProductForm(QDialog):
                 color: #6c5ce7;
                 border: 1px solid #3a3a3a;
                 border-radius: 6px;
-                font-size: 13px;
-                padding: 8px 12px;
+                font-size: 11px;
+                padding: 4px 8px;
             }
             QPushButton:hover {
                 background-color: #6c5ce7;
@@ -337,6 +337,7 @@ class ProductForm(QDialog):
         self.variant_table.setColumnCount(len(headers))
         self.variant_table.setHorizontalHeaderLabels(headers)
         self.variant_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.variant_table.horizontalHeader().setSectionResizeMode(len(headers) - 1, QHeaderView.ResizeToContents)
 
     def on_category_changed(self, index):
         cat_id = self.cat_combo.currentData()
