@@ -63,10 +63,10 @@ QPushButton {
     color: #FFFFFF;
     border: none;
     border-radius: 5px;
-    padding: 5px 12px;
+    padding: 4px 8px;
     font-size: 11px;
     font-weight: 600;
-    min-width: 70px;
+    min-width: 50px;
 }
 
 QPushButton:hover {
@@ -88,7 +88,6 @@ QPushButton#EditAction {
     font-weight: 600;
     min-height: 18px;
     min-width: 46px;
-    max-width: 58px;
 }
 
 QPushButton#EditAction:hover {
@@ -107,7 +106,6 @@ QPushButton#DeleteAction {
     font-weight: 600;
     min-height: 18px;
     min-width: 46px;
-    max-width: 58px;
 }
 
 QPushButton#DeleteAction:hover {
@@ -126,7 +124,6 @@ QPushButton#ViewAction {
     font-weight: 600;
     min-height: 18px;
     min-width: 46px;
-    max-width: 58px;
 }
 
 QPushButton#ViewAction:hover {

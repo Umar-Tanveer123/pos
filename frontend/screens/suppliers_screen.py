@@ -267,8 +267,7 @@ class SuppliersScreen(QWidget):
         # Design Table Header
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.Fixed)
-        self.table.setColumnWidth(6, 180)
+        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeToContents)
         self.table.verticalHeader().setDefaultSectionSize(45) # Prevents layout squeezing
         layout.addWidget(self.table)
         
