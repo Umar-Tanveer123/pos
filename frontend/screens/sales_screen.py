@@ -590,17 +590,24 @@ class SalesScreen(QWidget):
         cust_layout.addWidget(self.customer_combo)
         top_row.addLayout(cust_layout, stretch=2)
 
-        # Quick customer name entry
+        # Quick customer name & type entry
         quick_cust_layout = QVBoxLayout()
         quick_cust_layout.setSpacing(4)
-        quick_cust_layout.addWidget(QLabel("Quick Customer Name (optional):"))
+        quick_cust_layout.addWidget(QLabel("Quick Customer Name & Type (optional):"))
         quick_row = QHBoxLayout()
         quick_row.setSpacing(4)
         self.quick_cust_input = QLineEdit()
-        self.quick_cust_input.setPlaceholderText("Type name & press Enter or + to save...")
+        self.quick_cust_input.setPlaceholderText("Quick Customer Name...")
         self.quick_cust_input.setStyleSheet("QLineEdit { font-size: 12px; padding: 5px; }")
         self.quick_cust_input.returnPressed.connect(self.on_quick_customer_save)
         quick_row.addWidget(self.quick_cust_input)
+        
+        self.quick_cust_type_combo = QComboBox()
+        self.quick_cust_type_combo.setFixedWidth(100)
+        self.quick_cust_type_combo.setStyleSheet("QComboBox { font-size: 12px; padding: 4px; }")
+        self.quick_cust_type_combo.currentIndexChanged.connect(self.on_quick_cust_type_changed)
+        quick_row.addWidget(self.quick_cust_type_combo)
+
         quick_cust_btn = QPushButton("+")
         quick_cust_btn.setFixedWidth(32)
         quick_cust_btn.setStyleSheet("QPushButton { background-color: #00b894; color: white; font-weight: bold; font-size: 14px; padding: 4px; border-radius: 4px; min-width: 0; }")
@@ -845,6 +852,17 @@ class SalesScreen(QWidget):
             self.on_customer_changed()
         except Exception:
             pass
+
+        # Load Customer Types
+        try:
+            cust_types = client.get_customer_types()
+            self.quick_cust_type_combo.blockSignals(True)
+            self.quick_cust_type_combo.clear()
+            for t in cust_types:
+                self.quick_cust_type_combo.addItem(t["name"], t["id"])
+            self.quick_cust_type_combo.blockSignals(False)
+        except Exception:
+            pass
             
         # Load all products cache
         try:
@@ -1005,22 +1023,40 @@ class SalesScreen(QWidget):
                 break
                 
         if selected_cust:
-            self.lbl_cust_type.setText(f"Type: {selected_cust.get('customer_type_name') or 'Retail'}")
+            cust_type_name = selected_cust.get('customer_type_name') or 'Retail'
+            self.lbl_cust_type.setText(f"Type: {cust_type_name}")
             self.lbl_cust_limit.setText(f"Credit Limit: Rs. {selected_cust.get('credit_limit', 0.0):,.2f}")
             self.lbl_cust_bal.setText(f"Owed Balance: Rs. {selected_cust.get('balance', 0.0):,.2f}")
             
+            # Sync the quick customer type combo box
+            self.quick_cust_type_combo.blockSignals(True)
+            for i in range(self.quick_cust_type_combo.count()):
+                if self.quick_cust_type_combo.itemText(i) == cust_type_name:
+                    self.quick_cust_type_combo.setCurrentIndex(i)
+                    break
+            self.quick_cust_type_combo.blockSignals(False)
+
             # Live recalculation of prices based on customer type
-            cust_type = selected_cust.get('customer_type_name') or "Retail"
-            self.update_cart_prices(cust_type)
+            self.update_cart_prices(cust_type_name)
             
+    def on_quick_cust_type_changed(self):
+        selected_type = self.quick_cust_type_combo.currentText()
+        if selected_type:
+            self.update_cart_prices(selected_type)
+
     def on_quick_customer_save(self):
         name = self.quick_cust_input.text().strip()
         if not name:
             QMessageBox.warning(self, "Name Required", "Please enter a customer name.")
             return
 
-        # Create customer via API (walk-in, retail type by default)
-        payload = {"name": name, "phone": "", "address": ""}
+        # Create customer via API with the selected Customer Type
+        payload = {
+            "name": name, 
+            "phone": "", 
+            "address": "",
+            "customer_type_id": self.quick_cust_type_combo.currentData()
+        }
         success, res = client.create_customer(payload)
         if success:
             new_id = res.get("id")
@@ -1321,7 +1357,12 @@ class SalesScreen(QWidget):
         # Auto-save quick customer if name is entered but not saved/selected yet
         quick_name = self.quick_cust_input.text().strip()
         if quick_name:
-            payload = {"name": quick_name, "phone": "", "address": ""}
+            payload = {
+                "name": quick_name, 
+                "phone": "", 
+                "address": "",
+                "customer_type_id": self.quick_cust_type_combo.currentData()
+            }
             success, res = client.create_customer(payload)
             if success:
                 new_id = res.get("id")
