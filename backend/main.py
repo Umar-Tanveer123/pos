@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from backend.core.config import settings
 from backend.api import auth, users, locations, products, suppliers, purchases, supplier_returns, customers, sales, customer_returns, inventory, expenses, reports, audit, backup, settings as api_settings
-from backend.core.database import Base, engine
+from backend.core.database import Base, engine, SessionLocal
+from backend.models.partner import CustomerType, Customer
 import backend.models
 
 # Create tables if they do not exist
