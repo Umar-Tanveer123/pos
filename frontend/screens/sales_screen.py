@@ -1379,6 +1379,9 @@ class SalesScreen(QWidget):
             self.update_cart_table()
             self.recalc_totals()
             self.load_data()
+            
+            # Automatically show the invoice preview dialog
+            self.print_invoice(result)
         else:
             QMessageBox.critical(self, "Checkout Failed", str(result))
 
