@@ -244,7 +244,7 @@ class PrintPreviewDialog(QDialog):
         html += "<div class='line'></div>"
         html += f"<div>Mop: Cash Sales &nbsp;&nbsp;&nbsp; Receipt: {self.sale['internal_id']}</div>"
         html += f"<div>Date: {formatted_date}</div>"
-        if tmpl.get("show_customer_info"):
+        if tmpl.get("show_customer_info") or cust_name != "Walk-in Customer":
             html += f"<div>Customer: {cust_name}</div>"
         html += "<div class='line'></div>"
 
@@ -1318,6 +1318,32 @@ class SalesScreen(QWidget):
             QMessageBox.warning(self, "Empty Cart", "Please scan or add at least one item to cart.")
             return
             
+        # Auto-save quick customer if name is entered but not saved/selected yet
+        quick_name = self.quick_cust_input.text().strip()
+        if quick_name:
+            payload = {"name": quick_name, "phone": "", "address": ""}
+            success, res = client.create_customer(payload)
+            if success:
+                new_id = res.get("id")
+                # Reload customer list and select the new customer
+                self.all_customers = client.get_customers()
+                self.customer_combo.blockSignals(True)
+                self.customer_combo.clear()
+                select_idx = 0
+                for i, cust in enumerate(self.all_customers):
+                    display = f"{cust['name']} ({cust['internal_id']})"
+                    self.customer_combo.addItem(display, cust["id"])
+                    if cust["id"] == new_id:
+                        select_idx = i
+                self.customer_combo.setCurrentIndex(select_idx)
+                self.customer_combo.blockSignals(False)
+                self.on_customer_changed()
+                self.quick_cust_input.clear()
+                customer_id = new_id
+            else:
+                QMessageBox.warning(self, "Error", f"Failed to auto-create customer: {res}")
+                return
+
         customer_id = self.customer_combo.currentData()
         location_id = self.location_combo.currentData()
         
