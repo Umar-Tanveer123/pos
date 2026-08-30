@@ -645,8 +645,15 @@ class MainAppShell(QWidget):
             return
 
         self.cards["sales"].val_label.setText(f"Rs. {metrics.get('total_sales', 0):,.2f}")
-        self.cards["gross_profit"].val_label.setText(f"Rs. {metrics.get('gross_profit', 0):,.2f}")
-        self.cards["net_profit"].val_label.setText(f"Rs. {metrics.get('net_profit', 0):,.2f}")
+        
+        has_profit = getattr(self, "has_profit_access", True)
+        if has_profit:
+            self.cards["gross_profit"].val_label.setText(f"Rs. {metrics.get('gross_profit', 0):,.2f}")
+            self.cards["net_profit"].val_label.setText(f"Rs. {metrics.get('net_profit', 0):,.2f}")
+        else:
+            self.cards["gross_profit"].val_label.setText("🔒 Restricted")
+            self.cards["net_profit"].val_label.setText("🔒 Restricted")
+            
         self.cards["expenses"].val_label.setText(f"Rs. {metrics.get('total_expenses', 0):,.2f}")
         
         self.cards["purchases"].val_label.setText(f"Rs. {metrics.get('total_purchases', 0):,.2f}")
@@ -668,9 +675,33 @@ class MainAppShell(QWidget):
         self.chart.start_animation(chart_vals, chart_labels)
         self.donut_chart.start_animation(low_stock_val, metrics.get('total_products', 100))
 
-    def set_user(self, username, role):
+    def set_user_data(self, user_data):
+        self.user_data = user_data
+        username = user_data.get("username", "User")
+        role_name = user_data.get("role_name") or "Staff"
+        
         self.username_label.setText(username)
-        self.role_label.setText(role)
+        self.role_label.setText(role_name)
+        
+        is_admin_owner = role_name.lower() in ["admin", "owner", "administrator"]
+        
+        user_perms_str = user_data.get("permissions") or ""
+        self.permissions = [p.strip() for p in user_perms_str.split(",") if p.strip()]
+        
+        def has_permission(perm_key):
+            if is_admin_owner:
+                return True
+            return perm_key in self.permissions
+
+        for key, btn in self.nav_buttons.items():
+            if key == "dashboard":
+                btn.setVisible(True)
+            else:
+                btn.setVisible(has_permission(key))
+                
+        self.has_profit_access = has_permission("view_profit")
+        self.suppliers_screen.set_profit_visibility(self.has_profit_access)
+        self.reports_screen.set_profit_visibility(self.has_profit_access)
         
         # Load and refresh all screens on login
         self.locations_screen.load_locations()
@@ -707,11 +738,8 @@ class MainWindow(QMainWindow):
         fix_comboboxes(self)
 
     def on_login_successful(self, user_data: dict):
-        username = user_data.get("username", "User")
-        role = "Administrator" if user_data.get("role_id") == 1 else "Staff"
-        
-        # Update user profile details
-        self.main_shell.set_user(username, role)
+        # Update user profile and permissions
+        self.main_shell.set_user_data(user_data)
         
         # Switch screen
         self.stacked_widget.setCurrentWidget(self.main_shell)

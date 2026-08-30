@@ -10,6 +10,14 @@ Base.metadata.create_all(bind=engine)
 
 def seed_database(db):
     try:
+        # Alter users table to add permissions column if it doesn't exist
+        from sqlalchemy import text
+        try:
+            db.execute(text("ALTER TABLE users ADD COLUMN permissions VARCHAR DEFAULT '';"))
+            db.commit()
+        except Exception:
+            pass
+
         # 1. Seed Roles (SRS 43)
         from backend.models.auth import Role
         app_roles = ["Owner", "Admin", "Manager", "Cashier", "Storekeeper", "Purchase Employee", "Accountant"]

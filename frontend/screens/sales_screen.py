@@ -494,6 +494,7 @@ class SalesScreen(QWidget):
         self.cart_items = [] # list of dicts: {product, variant, qty, price, discount}
         self.all_products = []
         self.all_customers = []
+        self.held_transactions = []
         self.init_ui()
         
     def init_ui(self):
@@ -623,6 +624,46 @@ class SalesScreen(QWidget):
         row2.addLayout(quick_cust_layout, stretch=1)
 
         layout.addLayout(row2)
+
+        # --- Top controls row 3 (Hold & Resume Transaction) ---
+        row3 = QHBoxLayout()
+        row3.setSpacing(15)
+        
+        hold_layout = QHBoxLayout()
+        hold_layout.setSpacing(8)
+        
+        self.btn_hold = QPushButton("📥 Hold Transaction")
+        self.btn_hold.setStyleSheet("""
+            QPushButton {
+                background-color: #f39c12; color: white;
+                font-weight: bold; padding: 8px 16px; border-radius: 6px;
+            }
+            QPushButton:hover { background-color: #e67e22; }
+        """)
+        self.btn_hold.clicked.connect(self.hold_current_transaction)
+        hold_layout.addWidget(self.btn_hold)
+        
+        hold_layout.addWidget(QLabel("Held Transactions:"))
+        self.held_combo = QComboBox()
+        self.held_combo.setMinimumWidth(200)
+        self.held_combo.setStyleSheet("QComboBox { padding: 6px; }")
+        hold_layout.addWidget(self.held_combo)
+        
+        self.btn_resume = QPushButton("📤 Resume Transaction")
+        self.btn_resume.setStyleSheet("""
+            QPushButton {
+                background-color: #27ae60; color: white;
+                font-weight: bold; padding: 8px 16px; border-radius: 6px;
+            }
+            QPushButton:hover { background-color: #219653; }
+        """)
+        self.btn_resume.clicked.connect(self.resume_selected_transaction)
+        hold_layout.addWidget(self.btn_resume)
+        
+        row3.addLayout(hold_layout)
+        row3.addStretch()
+        
+        layout.addLayout(row3)
         
         # --- Main Split Layout ---
         main_split = QHBoxLayout()
@@ -636,9 +677,15 @@ class SalesScreen(QWidget):
         self.cart_table.setHorizontalHeaderLabels([
             "Product / Variant", "Unit", "Quantity", "Price (Rs.)", "Discount (Rs.)", "Total (Rs.)", "Action"
         ])
-        self.cart_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        
+        self.cart_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.cart_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.cart_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.cart_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        self.cart_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
+        self.cart_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeToContents)
         self.cart_table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeToContents)
+        
         self.cart_table.setStyleSheet("QTableWidget { background-color: #1a1a1a; }")
         cart_box.addWidget(self.cart_table)
         main_split.addLayout(cart_box, stretch=3)
@@ -1133,7 +1180,6 @@ class SalesScreen(QWidget):
     def populate_search_combo(self):
         self.product_search_combo.blockSignals(True)
         self.product_search_combo.clear()
-        self.product_search_combo.addItem("-- Search & Select Product --", None)
         
         for p in self.all_products:
             # Add base product
@@ -1146,10 +1192,14 @@ class SalesScreen(QWidget):
                 var_price = var.get('retail_price') or p['retail_price']
                 self.product_search_combo.addItem(f"{p['name']} - {var['name']}{var_sku} - Rs. {var_price:.2f}", {"product": p, "variant": var})
                 
+        self.product_search_combo.setCurrentIndex(-1)
+        if self.product_search_combo.lineEdit():
+            self.product_search_combo.lineEdit().clear()
+            self.product_search_combo.lineEdit().setPlaceholderText("Search product by name or SKU...")
         self.product_search_combo.blockSignals(False)
 
     def on_search_product_selected(self, index):
-        if index <= 0:
+        if index < 0:
             return
             
         data = self.product_search_combo.itemData(index)
@@ -1161,9 +1211,9 @@ class SalesScreen(QWidget):
         
         self.add_product_to_cart(match_prod, match_var)
         
-        # Reset selection and clear search text box
+        # Reset selection and clear search text box to show placeholder again
         self.product_search_combo.blockSignals(True)
-        self.product_search_combo.setCurrentIndex(0)
+        self.product_search_combo.setCurrentIndex(-1)
         if self.product_search_combo.lineEdit():
             self.product_search_combo.lineEdit().clear()
         self.product_search_combo.blockSignals(False)
@@ -1484,3 +1534,78 @@ class SalesScreen(QWidget):
             "Cash Drawer", 
             "Signal sent to open Cash Drawer.\n(Hardware integration required for physical operation)."
         )
+
+    def hold_current_transaction(self):
+        if not self.cart_items:
+            QMessageBox.warning(self, "Hold Transaction", "Cart is empty. Nothing to hold.")
+            return
+            
+        from PySide6.QtWidgets import QInputDialog
+        ref, ok = QInputDialog.getText(
+            self, "Hold Transaction", 
+            "Enter customer name or reference note for this held transaction:"
+        )
+        if not ok:
+            return
+            
+        ref = ref.strip() or f"Transaction #{len(self.held_transactions) + 1}"
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%I:%M %p")
+        ref_label = f"{ref} ({timestamp} - {len(self.cart_items)} items)"
+        
+        held_state = {
+            "ref_label": ref_label,
+            "cart_items": list(self.cart_items),
+            "customer_index": self.customer_combo.currentIndex(),
+            "discount": self.cart_discount_spin.value(),
+            "quick_cust_name": self.quick_cust_input.text(),
+            "quick_cust_type": self.quick_cust_type_combo.currentIndex()
+        }
+        
+        self.held_transactions.append(held_state)
+        
+        # Clear current cart
+        self.cart_items = []
+        self.cart_discount_spin.setValue(0.0)
+        self.quick_cust_input.clear()
+        self.update_cart_table()
+        self.recalc_totals()
+        
+        self.update_held_transactions_combo()
+        
+        QMessageBox.information(
+            self, "📥 Transaction Held", 
+            f"Current transaction has been put on hold.\nReference: {ref_label}"
+        )
+
+    def resume_selected_transaction(self):
+        idx = self.held_combo.currentIndex()
+        if idx < 0 or idx >= len(self.held_transactions):
+            QMessageBox.warning(self, "Resume Transaction", "No held transaction selected.")
+            return
+            
+        if self.cart_items:
+            reply = QMessageBox.question(
+                self, "Resume Transaction",
+                "You have items in your active cart. Do you want to overwrite the current cart?",
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if reply == QMessageBox.No:
+                return
+                
+        state = self.held_transactions.pop(idx)
+        
+        self.cart_items = state["cart_items"]
+        self.customer_combo.setCurrentIndex(state["customer_index"])
+        self.cart_discount_spin.setValue(state["discount"])
+        self.quick_cust_input.setText(state["quick_cust_name"])
+        self.quick_cust_type_combo.setCurrentIndex(state["quick_cust_type"])
+        
+        self.update_cart_table()
+        self.recalc_totals()
+        self.update_held_transactions_combo()
+
+    def update_held_transactions_combo(self):
+        self.held_combo.clear()
+        for t in self.held_transactions:
+            self.held_combo.addItem(t["ref_label"])

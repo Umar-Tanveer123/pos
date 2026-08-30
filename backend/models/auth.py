@@ -36,8 +36,14 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     is_active = Column(Boolean, default=True)
+    permissions = Column(String, nullable=True, default="")
     
     role_id = Column(Integer, ForeignKey("roles.id"))
     role = relationship("Role", back_populates="users")
 
     locations = relationship("Location", secondary=user_location_assoc, back_populates="users")
+
+    @property
+    def role_name(self):
+        return self.role.name if self.role else None
+

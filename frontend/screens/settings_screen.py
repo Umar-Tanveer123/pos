@@ -1,7 +1,8 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QTabWidget, QLineEdit, QFormLayout,
-    QMessageBox, QComboBox, QCheckBox, QScrollArea, QFrame, QTextEdit
+    QMessageBox, QComboBox, QCheckBox, QScrollArea, QFrame, QTextEdit,
+    QDialog, QGridLayout
 )
 from PySide6.QtCore import Qt, QDate
 from frontend.api_client import client
@@ -45,6 +46,11 @@ class SettingsScreen(QWidget):
         self.tab_invoice = QWidget()
         self.setup_invoice_tab(self.tab_invoice)
         self.tabs.addTab(self.tab_invoice, "🧾 Invoice Templates")
+
+        # 5. User Management Tab
+        self.tab_users = QWidget()
+        self.setup_users_tab(self.tab_users)
+        self.tabs.addTab(self.tab_users, "👤 User Management")
         
         layout.addWidget(self.tabs)
         self.tabs.currentChanged.connect(self.on_tab_changed)
@@ -59,6 +65,8 @@ class SettingsScreen(QWidget):
             self.load_backups()
         elif index == 2:
             self.load_audit_logs()
+        elif index == 4:
+            self.load_users()
             
     def load_data(self):
         self.on_tab_changed(self.tabs.currentIndex())
@@ -379,3 +387,279 @@ class SettingsScreen(QWidget):
                 QMessageBox.warning(self, "Error", f"Failed to save template: {res}")
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Could not save template: {e}")
+
+    # --- User Management Tab ---
+    def setup_users_tab(self, parent):
+        layout = QVBoxLayout(parent)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
+        
+        ctrl_layout = QHBoxLayout()
+        create_btn = QPushButton("➕ Create User")
+        create_btn.setStyleSheet("background-color: #6c5ce7; color: white; padding: 8px 16px; font-weight: bold; border-radius: 4px;")
+        create_btn.clicked.connect(self.open_create_user)
+        ctrl_layout.addWidget(create_btn)
+        ctrl_layout.addStretch()
+        
+        layout.addLayout(ctrl_layout)
+        
+        self.users_table = QTableWidget()
+        self.users_table.setColumnCount(6)
+        self.users_table.setHorizontalHeaderLabels(["ID", "Username", "Role", "Permissions", "Status", "Actions"])
+        self.users_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.users_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.users_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeToContents)
+        layout.addWidget(self.users_table)
+        
+    def load_users(self):
+        try:
+            users = client.get_users()
+            roles = client.get_roles()
+            role_map = {r["id"]: r["name"] for r in roles}
+            
+            self.users_table.setRowCount(len(users))
+            for idx, u in enumerate(users):
+                self.users_table.setItem(idx, 0, QTableWidgetItem(str(u["id"])))
+                self.users_table.setItem(idx, 1, QTableWidgetItem(u["username"]))
+                
+                role_id = u.get("role_id")
+                role_name = role_map.get(role_id, "N/A")
+                self.users_table.setItem(idx, 2, QTableWidgetItem(role_name))
+                
+                perms = u.get("permissions") or "—"
+                self.users_table.setItem(idx, 3, QTableWidgetItem(perms))
+                
+                status = "Active" if u.get("is_active", True) else "Inactive"
+                status_item = QTableWidgetItem(status)
+                if status == "Active":
+                    status_item.setForeground(Qt.green)
+                else:
+                    status_item.setForeground(Qt.red)
+                self.users_table.setItem(idx, 4, status_item)
+                
+                # Actions Panel
+                action_widget = QWidget()
+                action_layout = QHBoxLayout(action_widget)
+                action_layout.setContentsMargins(4, 2, 4, 2)
+                action_layout.setSpacing(6)
+                
+                edit_btn = QPushButton("Edit")
+                edit_btn.setProperty("user", u)
+                edit_btn.setStyleSheet("background-color: #0984e3; color: white; padding: 4px 10px; font-weight: bold; border-radius: 4px;")
+                edit_btn.clicked.connect(self.open_edit_user)
+                action_layout.addWidget(edit_btn)
+                
+                deact_btn = QPushButton("Deactivate" if u.get("is_active", True) else "Activate")
+                deact_btn.setProperty("user", u)
+                if u.get("is_active", True):
+                    deact_btn.setStyleSheet("background-color: #d63031; color: white; padding: 4px 10px; font-weight: bold; border-radius: 4px;")
+                else:
+                    deact_btn.setStyleSheet("background-color: #27ae60; color: white; padding: 4px 10px; font-weight: bold; border-radius: 4px;")
+                deact_btn.clicked.connect(self.toggle_user_status)
+                action_layout.addWidget(deact_btn)
+                
+                action_widget.setLayout(action_layout)
+                self.users_table.setCellWidget(idx, 5, action_widget)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load users: {str(e)}")
+            
+    def open_create_user(self):
+        dialog = UserDialog(self)
+        if dialog.exec() == QDialog.Accepted:
+            data = dialog.get_data()
+            success, res = client.create_user(data)
+            if success:
+                self.load_users()
+                QMessageBox.information(self, "Success", "User created successfully.")
+            else:
+                QMessageBox.critical(self, "Error", f"Failed to create user: {res}")
+                
+    def open_edit_user(self):
+        btn = self.sender()
+        if not btn: return
+        user = btn.property("user")
+        
+        dialog = UserDialog(self, user=user)
+        if dialog.exec() == QDialog.Accepted:
+            data = dialog.get_data()
+            success, res = client.update_user(user["id"], data)
+            if success:
+                self.load_users()
+                QMessageBox.information(self, "Success", "User updated successfully.")
+            else:
+                QMessageBox.critical(self, "Error", f"Failed to update user: {res}")
+                
+    def toggle_user_status(self):
+        btn = self.sender()
+        if not btn: return
+        user = btn.property("user")
+        
+        new_status = not user.get("is_active", True)
+        status_word = "activate" if new_status else "deactivate"
+        
+        reply = QMessageBox.question(
+            self,
+            "Confirm Status Change",
+            f"Are you sure you want to {status_word} user '{user['username']}'?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            success, res = client.update_user(user["id"], {"is_active": new_status})
+            if success:
+                self.load_users()
+                QMessageBox.information(self, "Success", f"User {status_word}d successfully.")
+            else:
+                QMessageBox.critical(self, "Error", f"Failed to change user status: {res}")
+
+
+class UserDialog(QDialog):
+    def __init__(self, parent=None, user=None):
+        super().__init__(parent)
+        self.user = user
+        self.roles = []
+        self.init_ui()
+        
+    def init_ui(self):
+        self.setWindowTitle("Edit User" if self.user else "Create User")
+        self.setMinimumWidth(500)
+        self.setStyleSheet("""
+            QDialog { background-color: #121212; color: #ffffff; }
+            QLabel { color: #a0a0a0; font-weight: bold; }
+            QLineEdit, QComboBox { background-color: #1e1e1e; color: white; border: 1px solid #333; border-radius: 4px; padding: 6px; }
+            QPushButton { padding: 8px 16px; font-weight: bold; border-radius: 4px; }
+            QCheckBox { color: white; font-size: 13px; }
+        """)
+        
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+        
+        self.username_input = QLineEdit()
+        if self.user:
+            self.username_input.setText(self.user.get("username", ""))
+            self.username_input.setEnabled(False)
+        form.addRow("Username *:", self.username_input)
+        
+        self.password_input = QLineEdit()
+        self.password_input.setEchoMode(QLineEdit.Password)
+        if self.user:
+            self.password_input.setPlaceholderText("Leave blank to keep current password")
+        else:
+            self.password_input.setPlaceholderText("Enter password")
+        form.addRow("Password:", self.password_input)
+        
+        self.role_combo = QComboBox()
+        form.addRow("Role *:", self.role_combo)
+        
+        self.active_check = QCheckBox("Active User")
+        self.active_check.setChecked(True)
+        if self.user:
+            self.active_check.setChecked(self.user.get("is_active", True))
+        form.addRow("Status:", self.active_check)
+        
+        layout.addLayout(form)
+        
+        layout.addWidget(QLabel("<b>Granular Access Permissions:</b>"))
+        
+        perm_frame = QFrame()
+        perm_frame.setStyleSheet("QFrame { background-color: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 10px; }")
+        perm_layout = QGridLayout(perm_frame)
+        
+        self.permission_keys = {
+            "dashboard": "Dashboard Metrics",
+            "locations": "Locations Management",
+            "products": "Products Catalog",
+            "suppliers": "Suppliers Management",
+            "purchases": "Purchase Orders",
+            "supplier_returns": "Supplier Returns",
+            "bulk_prices": "Price Manager",
+            "customers": "Customers Directory",
+            "sales": "Sales / POS Screen",
+            "inventory": "Inventory Records",
+            "expenses": "Expenses Tracker",
+            "reports": "Analytical Reports",
+            "settings": "Settings & Backups",
+            "view_profit": "💰 View Profit / Margin Details"
+        }
+        
+        self.checkboxes = {}
+        row = 0
+        col = 0
+        for key, label in self.permission_keys.items():
+            cb = QCheckBox(label)
+            if key == "view_profit":
+                cb.setStyleSheet("QCheckBox { color: #ffd700; font-weight: bold; }")
+            perm_layout.addWidget(cb, row, col)
+            self.checkboxes[key] = cb
+            col += 1
+            if col > 1:
+                col = 0
+                row += 1
+                
+        if self.user and self.user.get("permissions"):
+            user_perms = [p.strip() for p in self.user["permissions"].split(",") if p.strip()]
+            for p in user_perms:
+                if p in self.checkboxes:
+                    self.checkboxes[p].setChecked(True)
+                    
+        layout.addWidget(perm_frame)
+        
+        self.load_roles()
+        
+        btn_layout = QHBoxLayout()
+        save_btn = QPushButton("Save")
+        save_btn.setStyleSheet("background-color: #6c5ce7; color: white;")
+        save_btn.clicked.connect(self.handle_save)
+        
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setStyleSheet("background-color: #2e2e2e; color: white;")
+        cancel_btn.clicked.connect(self.reject)
+        
+        btn_layout.addStretch()
+        btn_layout.addWidget(cancel_btn)
+        btn_layout.addWidget(save_btn)
+        layout.addLayout(btn_layout)
+        
+    def load_roles(self):
+        try:
+            self.roles = client.get_roles()
+            self.role_combo.clear()
+            for r in self.roles:
+                self.role_combo.addItem(r["name"], r["id"])
+            if self.user:
+                role_id = self.user.get("role_id")
+                idx = self.role_combo.findData(role_id)
+                if idx != -1:
+                    self.role_combo.setCurrentIndex(idx)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load roles: {str(e)}")
+            
+    def handle_save(self):
+        username = self.username_input.text().strip()
+        
+        if not username:
+            QMessageBox.warning(self, "Validation Error", "Username is required.")
+            return
+        if not self.user and not self.password_input.text().strip():
+            QMessageBox.warning(self, "Validation Error", "Password is required for new users.")
+            return
+            
+        self.accept()
+        
+    def get_data(self):
+        selected_perms = [k for k, cb in self.checkboxes.items() if cb.isChecked()]
+        perms_str = ",".join(selected_perms)
+        
+        data = {
+            "role_id": self.role_combo.currentData(),
+            "permissions": perms_str,
+            "is_active": self.active_check.isChecked()
+        }
+        
+        passwd = self.password_input.text().strip()
+        if passwd:
+            data["password"] = passwd
+            
+        if not self.user:
+            data["username"] = self.username_input.text().strip()
+            
+        return data

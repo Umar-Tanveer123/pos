@@ -663,3 +663,12 @@ class SuppliersScreen(QWidget):
             elif profit_val < 0:
                 profit_item.setForeground(Qt.red)
             self.product_profit_table.setItem(row, 5, profit_item)
+
+    def set_profit_visibility(self, visible):
+        self.tabs.setTabEnabled(3, visible)
+        if not visible:
+            if self.tabs.count() == 4:
+                self.tabs.removeTab(3)
+        else:
+            if self.tabs.count() == 3:
+                self.tabs.addTab(self.tab_profit, "📈 Profit Analysis")

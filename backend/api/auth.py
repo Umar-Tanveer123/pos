@@ -22,6 +22,8 @@ class UserResponse(BaseModel):
     username: str
     is_active: bool
     role_id: int | None = None
+    role_name: str | None = None
+    permissions: str | None = None
 
     class Config:
         from_attributes = True

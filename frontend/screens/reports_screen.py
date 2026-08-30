@@ -148,3 +148,12 @@ class ReportsScreen(QWidget):
         for i, (k, v) in enumerate(items):
             self.fin_table.setItem(i, 0, QTableWidgetItem(k))
             self.fin_table.setItem(i, 1, QTableWidgetItem(f"{v:,.2f}"))
+
+    def set_profit_visibility(self, visible):
+        self.tabs.setTabEnabled(2, visible)
+        if not visible:
+            if self.tabs.count() == 3:
+                self.tabs.removeTab(2)
+        else:
+            if self.tabs.count() == 2:
+                self.tabs.addTab(self.tab_financials, "Financial Reports")

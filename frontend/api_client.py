@@ -541,5 +541,37 @@ class APIClient:
         response = requests.get(url, headers=self.get_headers())
         return response.json() if response.status_code == 200 else []
 
+    # --- User Management & Roles ---
+    def get_users(self):
+        url = f"{self.base_url}/users/"
+        response = requests.get(url, headers=self.get_headers())
+        return response.json() if response.status_code == 200 else []
+
+    def create_user(self, user_data: dict):
+        url = f"{self.base_url}/users/"
+        response = requests.post(url, json=user_data, headers=self.get_headers())
+        if response.status_code in (200, 201):
+            return True, response.json()
+        return False, response.json().get("detail", "Failed to create user")
+
+    def update_user(self, user_id: int, user_data: dict):
+        url = f"{self.base_url}/users/{user_id}"
+        response = requests.put(url, json=user_data, headers=self.get_headers())
+        if response.status_code == 200:
+            return True, response.json()
+        return False, response.json().get("detail", "Failed to update user")
+
+    def delete_user(self, user_id: int):
+        url = f"{self.base_url}/users/{user_id}"
+        response = requests.delete(url, headers=self.get_headers())
+        if response.status_code == 200:
+            return True, response.json()
+        return False, response.json().get("detail", "Failed to deactivate user")
+
+    def get_roles(self):
+        url = f"{self.base_url}/users/roles"
+        response = requests.get(url, headers=self.get_headers())
+        return response.json() if response.status_code == 200 else []
+
 # Global instance for the app to use
 client = APIClient()
