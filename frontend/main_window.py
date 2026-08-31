@@ -19,6 +19,7 @@ from frontend.screens.inventory_screen import InventoryScreen
 from frontend.screens.expenses_screen import ExpensesScreen
 from frontend.screens.reports_screen import ReportsScreen
 from frontend.screens.settings_screen import SettingsScreen
+from frontend.screens.barcode_generator_screen import BarcodeGeneratorScreen
 from frontend.api_client import client
 from frontend.theme import fix_comboboxes
 
@@ -279,6 +280,7 @@ class MainAppShell(QWidget):
             ("Dashboard", "dashboard"),
             ("Locations", "locations"),
             ("Products", "products"),
+            ("Barcode Printer", "barcodes"),
             ("Suppliers", "suppliers"),
             ("Purchases", "purchases"),
             ("Supplier Returns", "supplier_returns"),
@@ -340,6 +342,7 @@ class MainAppShell(QWidget):
         self.nav_buttons["dashboard"].clicked.connect(lambda: self.content_stack.setCurrentIndex(0))
         self.nav_buttons["locations"].clicked.connect(lambda: self.content_stack.setCurrentIndex(1))
         self.nav_buttons["products"].clicked.connect(lambda: self.content_stack.setCurrentIndex(2))
+        self.nav_buttons["barcodes"].clicked.connect(self.switch_to_barcodes)
         self.nav_buttons["sales"].clicked.connect(self.switch_to_sales)
         self.nav_buttons["suppliers"].clicked.connect(self.switch_to_suppliers)
         self.nav_buttons["purchases"].clicked.connect(self.switch_to_purchases)
@@ -350,6 +353,10 @@ class MainAppShell(QWidget):
         self.nav_buttons["expenses"].clicked.connect(self.switch_to_expenses)
         self.nav_buttons["reports"].clicked.connect(self.switch_to_reports)
         self.nav_buttons["settings"].clicked.connect(self.switch_to_settings)
+
+    def switch_to_barcodes(self):
+        self.content_stack.setCurrentIndex(13)
+        self.barcode_generator_screen.load_catalog()
 
     def switch_to_sales(self):
         self.content_stack.setCurrentIndex(3)
@@ -626,6 +633,10 @@ class MainAppShell(QWidget):
         # Index 12: Settings Screen
         self.settings_screen = SettingsScreen()
         self.content_stack.addWidget(self.settings_screen)
+
+        # Index 13: Barcode Generator Screen
+        self.barcode_generator_screen = BarcodeGeneratorScreen()
+        self.content_stack.addWidget(self.barcode_generator_screen)
 
     def refresh_dashboard_stats(self):
         period_map = {

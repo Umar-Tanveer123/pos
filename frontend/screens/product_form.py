@@ -104,8 +104,27 @@ class ProductForm(QDialog):
         self.gen_bar_btn.setCursor(Qt.PointingHandCursor)
         self.gen_bar_btn.clicked.connect(self.auto_generate_barcode)
         
+        self.preview_bar_btn = QPushButton("🏷️ Label")
+        self.preview_bar_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2a2a2a;
+                color: #00d2d3;
+                border: 1px solid #3a3a3a;
+                border-radius: 6px;
+                font-size: 11px;
+                padding: 4px 8px;
+            }
+            QPushButton:hover {
+                background-color: #00d2d3;
+                color: white;
+            }
+        """)
+        self.preview_bar_btn.setCursor(Qt.PointingHandCursor)
+        self.preview_bar_btn.clicked.connect(self.open_single_label_preview)
+
         barcode_layout.addWidget(self.barcode_input)
         barcode_layout.addWidget(self.gen_bar_btn)
+        barcode_layout.addWidget(self.preview_bar_btn)
         basic_layout.addRow("Barcode", barcode_layout)
 
         # Dropdowns
@@ -604,3 +623,28 @@ class ProductForm(QDialog):
             self.accept()
         else:
             QMessageBox.critical(self, "API Error", res)
+
+    def open_single_label_preview(self):
+        barcode = self.barcode_input.text().strip()
+        if not barcode:
+            self.auto_generate_barcode()
+            barcode = self.barcode_input.text().strip()
+
+        prod_item = {
+            "id": self.product_data.get("id") if self.product_data else 0,
+            "name": self.name_input.text().strip() or "New Product",
+            "sku": self.sku_input.text().strip() or "",
+            "barcode": barcode,
+            "retail_price": self.retail_spin.value()
+        }
+
+        from frontend.screens.barcode_generator_screen import BarcodeGeneratorScreen
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"🏷️ Label Preview - {prod_item['name']}")
+        dialog.setMinimumSize(950, 600)
+        d_layout = QVBoxLayout(dialog)
+        d_layout.setContentsMargins(0, 0, 0, 0)
+        gen_screen = BarcodeGeneratorScreen(parent=dialog, initial_products=[prod_item])
+        d_layout.addWidget(gen_screen)
+        dialog.exec()
+

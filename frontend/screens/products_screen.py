@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
 from PySide6.QtCore import Qt
 from frontend.api_client import client
 from frontend.screens.product_form import ProductForm
+from frontend.screens.barcode_generator_screen import BarcodeGeneratorScreen
 
 class ProductsScreen(QWidget):
     def __init__(self, parent=None):
@@ -64,6 +65,12 @@ class ProductsScreen(QWidget):
         filter_layout.addWidget(self.prod_brand_filter)
 
         filter_layout.addStretch()
+
+        self.btn_print_barcodes = QPushButton("🏷️ Print Labels")
+        self.btn_print_barcodes.setStyleSheet("background-color: #2a2a2a; color: #6c5ce7; border: 1px solid #6c5ce7; font-weight: bold;")
+        self.btn_print_barcodes.setCursor(Qt.PointingHandCursor)
+        self.btn_print_barcodes.clicked.connect(self.open_barcode_printer_dialog)
+        filter_layout.addWidget(self.btn_print_barcodes)
 
         self.add_prod_btn = QPushButton("+ Add Product")
         self.add_prod_btn.setCursor(Qt.PointingHandCursor)
@@ -636,4 +643,15 @@ class ProductsScreen(QWidget):
                             QMessageBox.critical(self, "Error", f"Failed to delete unit: {err}")
                     except Exception as e:
                         QMessageBox.critical(self, "Error", f"Unexpected error occurred: {str(e)}")
+
+    def open_barcode_printer_dialog(self, initial_products=None):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("🏷️ Barcode & Label Printer")
+        dialog.setMinimumSize(1000, 650)
+        d_layout = QVBoxLayout(dialog)
+        d_layout.setContentsMargins(0, 0, 0, 0)
+        gen_screen = BarcodeGeneratorScreen(parent=dialog, initial_products=initial_products)
+        d_layout.addWidget(gen_screen)
+        dialog.exec()
+
 
