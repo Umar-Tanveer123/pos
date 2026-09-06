@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt
 from datetime import datetime
 from frontend.api_client import client
 from frontend.theme import fix_comboboxes
+from frontend.utils.printer_helper import print_html_receipt, kick_cash_drawer, get_available_printers
 
 class CustomerReturnDialog(QDialog):
     def __init__(self, sale, parent=None):
@@ -135,54 +136,116 @@ class PrintPreviewDialog(QDialog):
         super().__init__(parent)
         self.sale = sale
         self.templates = templates
+        self.preview_html = ""
         self.init_ui()
         
     def init_ui(self):
         self.setWindowTitle(f"Print Invoice: {self.sale['internal_id']}")
-        self.setMinimumSize(800, 600)
+        self.setMinimumSize(850, 650)
         self.setStyleSheet("""
             QDialog { background-color: #121212; color: #ffffff; }
-            QLabel { color: #a0a0a0; }
+            QLabel { color: #a0a0a0; font-weight: bold; }
             QTextBrowser { background-color: white; color: black; border: 1px solid #444; }
+            QComboBox { background-color: #1e1e1e; color: white; border: 1px solid #333; padding: 5px; border-radius: 4px; }
+            QPushButton { padding: 6px 12px; font-weight: bold; border-radius: 4px; }
         """)
         
         layout = QVBoxLayout(self)
         
-        # Controls
-        ctrl_layout = QHBoxLayout()
-        ctrl_layout.addWidget(QLabel("Select Template:"))
+        try:
+            settings = client.get_settings()
+        except Exception:
+            settings = {}
+            
+        saved_printer = settings.get("printer_name", "")
+        saved_paper = settings.get("printer_paper_width", "80mm")
+
+        # Controls Row 1
+        ctrl_layout1 = QHBoxLayout()
+        ctrl_layout1.setSpacing(10)
+        
+        ctrl_layout1.addWidget(QLabel("Select Template:"))
         self.tmpl_combo = QComboBox()
         for t in self.templates:
             self.tmpl_combo.addItem(t["name"], t)
         
-        # Set default
         for i, t in enumerate(self.templates):
-            if t["is_default"]:
+            if t.get("is_default"):
                 self.tmpl_combo.setCurrentIndex(i)
                 break
                 
         self.tmpl_combo.currentIndexChanged.connect(self.render_preview)
-        ctrl_layout.addWidget(self.tmpl_combo)
+        ctrl_layout1.addWidget(self.tmpl_combo)
+
+        ctrl_layout1.addWidget(QLabel("Target Printer:"))
+        self.printer_combo = QComboBox()
+        available_printers = get_available_printers()
+        self.printer_combo.addItem("System Default Printer", "")
+        for p_name in available_printers:
+            self.printer_combo.addItem(p_name, p_name)
+            
+        if saved_printer:
+            idx = self.printer_combo.findText(saved_printer)
+            if idx != -1:
+                self.printer_combo.setCurrentIndex(idx)
+        ctrl_layout1.addWidget(self.printer_combo)
         
-        print_btn = QPushButton("Print")
-        print_btn.setStyleSheet("background-color: #0984e3; color: white; padding: 6px 12px;")
-        print_btn.clicked.connect(self.do_print)
-        ctrl_layout.addWidget(print_btn)
+        ctrl_layout1.addWidget(QLabel("Paper Size:"))
+        self.paper_combo = QComboBox()
+        self.paper_combo.addItems(["80mm Thermal Roll", "58mm Thermal Roll", "A4 Page"])
+        if "58" in saved_paper:
+            self.paper_combo.setCurrentIndex(1)
+        elif "A4" in saved_paper:
+            self.paper_combo.setCurrentIndex(2)
+        else:
+            self.paper_combo.setCurrentIndex(0)
+            
+        self.paper_combo.currentIndexChanged.connect(self.render_preview)
+        ctrl_layout1.addWidget(self.paper_combo)
         
-        layout.addLayout(ctrl_layout)
+        layout.addLayout(ctrl_layout1)
+
+        # Controls Row 2
+        ctrl_layout2 = QHBoxLayout()
+        ctrl_layout2.setSpacing(10)
         
-        # Preview area
+        self.btn_direct_print = QPushButton("⚡ Direct Print")
+        self.btn_direct_print.setStyleSheet("background-color: #00b894; color: white;")
+        self.btn_direct_print.setToolTip("Print directly to selected printer without OS prompt")
+        self.btn_direct_print.clicked.connect(self.do_direct_print)
+        ctrl_layout2.addWidget(self.btn_direct_print)
+
+        self.btn_dialog_print = QPushButton("🖨️ Select Printer & Print...")
+        self.btn_dialog_print.setStyleSheet("background-color: #0984e3; color: white;")
+        self.btn_dialog_print.setToolTip("Open OS printer selection dialog")
+        self.btn_dialog_print.clicked.connect(self.do_dialog_print)
+        ctrl_layout2.addWidget(self.btn_dialog_print)
+
+        self.btn_drawer = QPushButton("🗄️ Open Cash Drawer")
+        self.btn_drawer.setStyleSheet("background-color: #fdcb6e; color: #2d3436;")
+        self.btn_drawer.clicked.connect(self.do_kick_drawer)
+        ctrl_layout2.addWidget(self.btn_drawer)
+
+        ctrl_layout2.addStretch()
+
+        btn_close = QPushButton("Close")
+        btn_close.setStyleSheet("background-color: #636e72; color: white;")
+        btn_close.clicked.connect(self.reject)
+        ctrl_layout2.addWidget(btn_close)
+
+        layout.addLayout(ctrl_layout2)
+
+        # Preview Area
         self.preview = QTextBrowser()
         layout.addWidget(self.preview)
-        
+
         self.render_preview()
-        
+
     def render_preview(self):
         tmpl = self.tmpl_combo.currentData()
         if not tmpl:
             return
 
-        # Load business settings for header
         try:
             settings = client.get_settings()
         except Exception:
@@ -194,16 +257,13 @@ class PrintPreviewDialog(QDialog):
         header_text = tmpl.get("header_text") or "SALE RECEIPT"
         footer_text = tmpl.get("footer_text") or "<<Thank you for your Shopping>>"
 
-        # Load sale details
         sale_date = self.sale.get("date", "")
         try:
-            from datetime import datetime
             dt = datetime.fromisoformat(sale_date.replace("Z", "+00:00"))
             formatted_date = dt.strftime("%d-%b-%Y %I:%M:%S %p")
         except Exception:
             formatted_date = sale_date
 
-        # Load customer
         cust_name = "Walk-in Customer"
         try:
             cust = client.get_customer(self.sale["customer_id"])
@@ -216,7 +276,7 @@ class PrintPreviewDialog(QDialog):
         <html>
         <head>
         <style>
-            body { font-family: 'Courier New', monospace; font-size: 12px; width: 350px; margin: 0 auto; padding: 10px; color: #000; }
+            body { font-family: 'Courier New', monospace; font-size: 12px; margin: 0 auto; padding: 10px; color: #000; }
             .center { text-align: center; }
             .bold { font-weight: bold; }
             .line { border-top: 1px dashed #000; margin: 6px 0; }
@@ -232,7 +292,6 @@ class PrintPreviewDialog(QDialog):
         <body>
         """
 
-        # Header
         html += f"<div class='center'><div class='bold' style='font-size:15px;'>{header_text}</div>"
         html += f"<div class='bold' style='font-size:13px;'>{biz_name}</div>"
         if biz_address:
@@ -248,11 +307,9 @@ class PrintPreviewDialog(QDialog):
             html += f"<div>Customer: {cust_name}</div>"
         html += "<div class='line'></div>"
 
-        # Items Table
         html += "<table>"
         html += "<tr><th>Sr.</th><th>Product Name</th><th class='num'>Qty</th><th class='num'>Price</th><th class='num'>Disc</th><th class='num'>Amt</th></tr>"
 
-        # Load product names
         try:
             prod_list = client.get_products(is_active=None)
             prod_map = {p["id"]: p for p in prod_list}
@@ -289,7 +346,6 @@ class PrintPreviewDialog(QDialog):
         html += "</table>"
         html += "<div class='line'></div>"
 
-        # Totals row
         html += f"<table>"
         html += f"<tr class='total-row'><td>Total Amount Sold Items</td><td class='num' colspan='5'>{grand_total:.2f}</td></tr>"
         html += f"<tr><td>Total Qty: {total_qty:.0f}</td><td class='num' colspan='5'>{grand_total:.2f} &nbsp; 0 &nbsp; {grand_total:.2f}</td></tr>"
@@ -312,12 +368,55 @@ class PrintPreviewDialog(QDialog):
         html += f"<div class='line'></div>"
         html += f"<div class='footer'>{footer_text}</div>"
         html += "</body></html>"
-        self.preview.setHtml(html)
         
-    def do_print(self):
-        # In a real app, use QPrinter. For now, simulate success.
-        QMessageBox.information(self, "Print Dispatched", "Document sent to the printer successfully.")
-        self.accept()
+        self.preview_html = html
+        self.preview.setHtml(html)
+
+    def do_direct_print(self):
+        p_name = self.printer_combo.currentData() or None
+        paper_text = self.paper_combo.currentText()
+        paper_width = 58 if "58" in paper_text else (210 if "A4" in paper_text else 80)
+
+        success, msg = print_html_receipt(
+            html_content=self.preview_html,
+            printer_name=p_name,
+            paper_width_mm=paper_width,
+            show_dialog=False,
+            parent=self
+        )
+        if success:
+            QMessageBox.information(self, "Print Dispatched", msg)
+            self.accept()
+        else:
+            QMessageBox.warning(self, "Print Error", msg)
+
+    def do_dialog_print(self):
+        p_name = self.printer_combo.currentData() or None
+        paper_text = self.paper_combo.currentText()
+        paper_width = 58 if "58" in paper_text else (210 if "A4" in paper_text else 80)
+
+        success, msg = print_html_receipt(
+            html_content=self.preview_html,
+            printer_name=p_name,
+            paper_width_mm=paper_width,
+            show_dialog=True,
+            parent=self
+        )
+        if success:
+            QMessageBox.information(self, "Print Dispatched", msg)
+            self.accept()
+        else:
+            if "cancelled" not in msg.lower():
+                QMessageBox.warning(self, "Print Error", msg)
+
+    def do_kick_drawer(self):
+        p_name = self.printer_combo.currentData() or None
+        success, msg = kick_cash_drawer(printer_name=p_name)
+        if success:
+            QMessageBox.information(self, "Cash Drawer", msg)
+        else:
+            QMessageBox.warning(self, "Cash Drawer Error", msg)
+
 
 class SaleDetailDialog(QDialog):
     def __init__(self, sale, parent=None):
@@ -1522,18 +1621,39 @@ class SalesScreen(QWidget):
             self.recalc_totals()
             self.load_data()
             
-            # Automatically show the invoice preview dialog
-            self.print_invoice(result)
+            # Automatically handle thermal print & cash drawer
+            try:
+                settings = client.get_settings()
+            except Exception:
+                settings = {}
+
+            if settings.get("printer_kick_drawer") == "true":
+                kick_cash_drawer(settings.get("printer_name"))
+
+            if settings.get("printer_auto_print") == "true":
+                templates = client.get_invoice_templates()
+                if templates:
+                    dlg = PrintPreviewDialog(result, templates, self)
+                    dlg.do_direct_print()
+                else:
+                    self.print_invoice(result)
+            else:
+                self.print_invoice(result)
         else:
             QMessageBox.critical(self, "Checkout Failed", str(result))
 
     def on_open_drawer_clicked(self):
-        # Hardware Integration Point for ESC/POS Cash Drawer Command
-        QMessageBox.information(
-            self, 
-            "Cash Drawer", 
-            "Signal sent to open Cash Drawer.\n(Hardware integration required for physical operation)."
-        )
+        try:
+            settings = client.get_settings()
+            p_name = settings.get("printer_name")
+        except Exception:
+            p_name = None
+            
+        success, msg = kick_cash_drawer(printer_name=p_name)
+        if success:
+            QMessageBox.information(self, "Cash Drawer", msg)
+        else:
+            QMessageBox.warning(self, "Cash Drawer Error", msg)
 
     def hold_current_transaction(self):
         if not self.cart_items:
