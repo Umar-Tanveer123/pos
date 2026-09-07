@@ -103,15 +103,20 @@ def init_database():
     except Exception as e:
         print(f"Database Setup Error: {e}")
 
-def wait_for_backend(host="127.0.0.1", port=8000, timeout=10):
+def wait_for_backend(host="127.0.0.1", port=8000, timeout=20):
+    import urllib.request
     start_time = time.time()
+    url = f"http://{host}:{port}/docs"
     while time.time() - start_time < timeout:
         try:
-            with socket.create_connection((host, port), timeout=0.5):
+            req = urllib.request.urlopen(url, timeout=1.0)
+            if req.status == 200:
+                print(f"[OK] Backend API verified ready in {time.time() - start_time:.2f}s")
                 return True
-        except (socket.timeout, ConnectionRefusedError, OSError):
-            time.sleep(0.1)
+        except Exception:
+            time.sleep(0.3)
     return False
+
 
 class SafeServer(uvicorn.Server):
     def install_signal_handlers(self):

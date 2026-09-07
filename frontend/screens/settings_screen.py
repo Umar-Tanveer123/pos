@@ -7,7 +7,6 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QDate
 from frontend.api_client import client
 from frontend.theme import export_table_to_csv
-from frontend.utils.printer_helper import print_html_receipt, kick_cash_drawer, get_available_printers
 
 class SettingsScreen(QWidget):
     def __init__(self):
@@ -52,11 +51,6 @@ class SettingsScreen(QWidget):
         self.tab_users = QWidget()
         self.setup_users_tab(self.tab_users)
         self.tabs.addTab(self.tab_users, "👤 User Management")
-
-        # 6. Thermal Printer & Hardware Tab
-        self.tab_printer = QWidget()
-        self.setup_printer_tab(self.tab_printer)
-        self.tabs.addTab(self.tab_printer, "🖨️ Printer & Cash Drawer")
         
         layout.addWidget(self.tabs)
         self.tabs.currentChanged.connect(self.on_tab_changed)
@@ -73,12 +67,9 @@ class SettingsScreen(QWidget):
             self.load_audit_logs()
         elif index == 4:
             self.load_users()
-        elif index == 5:
-            self.load_printer_settings()
             
     def load_data(self):
         self.on_tab_changed(self.tabs.currentIndex())
-
 
     # --- Settings Tab ---
     def setup_settings_tab(self, parent):
@@ -672,159 +663,3 @@ class UserDialog(QDialog):
             data["username"] = self.username_input.text().strip()
             
         return data
-
-    # --- Thermal Printer & Hardware Tab ---
-    def setup_printer_tab(self, parent):
-        layout = QVBoxLayout(parent)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
-
-        title = QLabel("Configure Thermal Receipt Printer, Roll Width & Cash Drawer Hardware.")
-        title.setStyleSheet("color: #a0a0a0; font-size: 13px;")
-        layout.addWidget(title)
-
-        form = QFormLayout()
-        form.setSpacing(12)
-
-        # 1. Printer selection
-        printer_row = QHBoxLayout()
-        self.printer_select_combo = QComboBox()
-        self.refresh_printers_btn = QPushButton("🔄 Refresh Printers")
-        self.refresh_printers_btn.setStyleSheet("background-color: #2d2d2d; color: white; padding: 6px 12px;")
-        self.refresh_printers_btn.clicked.connect(self.load_printer_list)
-        printer_row.addWidget(self.printer_select_combo, stretch=2)
-        printer_row.addWidget(self.refresh_printers_btn)
-        form.addRow(QLabel("Default Receipt Printer:"), printer_row)
-
-        # 2. Paper width
-        self.paper_width_combo = QComboBox()
-        self.paper_width_combo.addItems([
-            "80mm (Standard Thermal Receipt Roll)",
-            "58mm (Mini Thermal Receipt Roll)",
-            "A4 (Full Page Document)"
-        ])
-        form.addRow(QLabel("Receipt Paper Roll Width:"), self.paper_width_combo)
-
-        # 3. Checkboxes
-        self.chk_auto_print = QCheckBox("Automatically print thermal receipt immediately upon checkout")
-        self.chk_auto_print.setStyleSheet("color: white; font-size: 13px;")
-        form.addRow("", self.chk_auto_print)
-
-        self.chk_kick_drawer = QCheckBox("Automatically send open pulse to cash drawer on cash sales")
-        self.chk_kick_drawer.setStyleSheet("color: white; font-size: 13px;")
-        form.addRow("", self.chk_kick_drawer)
-
-        layout.addLayout(form)
-
-        # Action / Test buttons
-        btn_layout = QHBoxLayout()
-        btn_layout.setSpacing(12)
-
-        btn_save = QPushButton("💾 Save Printer Configurations")
-        btn_save.setStyleSheet("background-color: #6c5ce7; color: white; padding: 8px 16px; font-weight: bold; border-radius: 4px;")
-        btn_save.clicked.connect(self.save_printer_settings)
-        btn_layout.addWidget(btn_save)
-
-        btn_test_print = QPushButton("🖨️ Test Print Receipt")
-        btn_test_print.setStyleSheet("background-color: #0984e3; color: white; padding: 8px 16px; font-weight: bold; border-radius: 4px;")
-        btn_test_print.clicked.connect(self.test_print_receipt)
-        btn_layout.addWidget(btn_test_print)
-
-        btn_test_drawer = QPushButton("🗄️ Test Cash Drawer")
-        btn_test_drawer.setStyleSheet("background-color: #fdcb6e; color: #2d3436; padding: 8px 16px; font-weight: bold; border-radius: 4px;")
-        btn_test_drawer.clicked.connect(self.test_cash_drawer)
-        btn_layout.addWidget(btn_test_drawer)
-
-        btn_layout.addStretch()
-        layout.addLayout(btn_layout)
-        layout.addStretch()
-
-        self.load_printer_list()
-        self.load_printer_settings()
-
-    def load_printer_list(self):
-        printers = get_available_printers()
-        curr_data = self.printer_select_combo.currentData()
-        self.printer_select_combo.clear()
-        self.printer_select_combo.addItem("System Default Printer", "")
-        for p in printers:
-            self.printer_select_combo.addItem(p, p)
-        if curr_data:
-            idx = self.printer_select_combo.findData(curr_data)
-            if idx != -1:
-                self.printer_select_combo.setCurrentIndex(idx)
-
-    def load_printer_settings(self):
-        try:
-            settings = client.get_settings()
-            p_name = settings.get("printer_name", "")
-            if p_name:
-                idx = self.printer_select_combo.findData(p_name)
-                if idx != -1:
-                    self.printer_select_combo.setCurrentIndex(idx)
-
-            paper = settings.get("printer_paper_width", "80mm")
-            if "58" in paper:
-                self.paper_width_combo.setCurrentIndex(1)
-            elif "A4" in paper:
-                self.paper_width_combo.setCurrentIndex(2)
-            else:
-                self.paper_width_combo.setCurrentIndex(0)
-
-            self.chk_auto_print.setChecked(settings.get("printer_auto_print") == "true")
-            self.chk_kick_drawer.setChecked(settings.get("printer_kick_drawer") == "true")
-        except Exception as e:
-            QMessageBox.warning(self, "Error", f"Failed to load printer settings: {e}")
-
-    def save_printer_settings(self):
-        try:
-            selected_printer = self.printer_select_combo.currentData() or ""
-            paper_text = self.paper_width_combo.currentText()
-            paper_width = "58mm" if "58" in paper_text else ("A4" if "A4" in paper_text else "80mm")
-
-            payload = {
-                "printer_name": selected_printer,
-                "printer_paper_width": paper_width,
-                "printer_auto_print": "true" if self.chk_auto_print.isChecked() else "false",
-                "printer_kick_drawer": "true" if self.chk_kick_drawer.isChecked() else "false",
-            }
-            client.update_settings(payload)
-            QMessageBox.information(self, "Success", "Printer settings updated successfully!")
-        except Exception as e:
-            QMessageBox.warning(self, "Error", f"Failed to save printer settings: {e}")
-
-    def test_print_receipt(self):
-        p_name = self.printer_select_combo.currentData() or None
-        paper_text = self.paper_width_combo.currentText()
-        paper_width = 58 if "58" in paper_text else (210 if "A4" in paper_text else 80)
-
-        test_html = """
-        <div style="text-align:center;">
-            <h3 style="margin:0;">*** THERMAL PRINTER TEST ***</h3>
-            <p>POS System Thermal Print Test</p>
-        </div>
-        <div class="line"></div>
-        <table>
-            <tr><td>Item: Test Receipt Print</td><td style="text-align:right;">Rs. 100.00</td></tr>
-            <tr><td>Status: OPERATIONAL</td><td style="text-align:right;">OK</td></tr>
-        </table>
-        <div class="line"></div>
-        <div style="text-align:center;">
-            <p style="font-size:10px;">Thermal Printer integration working!</p>
-        </div>
-        """
-        success, msg = print_html_receipt(test_html, printer_name=p_name, paper_width_mm=paper_width, show_dialog=True, parent=self)
-        if success:
-            QMessageBox.information(self, "Test Print", msg)
-        else:
-            if "cancelled" not in msg.lower():
-                QMessageBox.warning(self, "Test Print Error", msg)
-
-    def test_cash_drawer(self):
-        p_name = self.printer_select_combo.currentData() or None
-        success, msg = kick_cash_drawer(printer_name=p_name)
-        if success:
-            QMessageBox.information(self, "Cash Drawer Test", msg)
-        else:
-            QMessageBox.warning(self, "Cash Drawer Error", msg)
-
