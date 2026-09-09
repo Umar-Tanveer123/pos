@@ -317,6 +317,10 @@ class SupplierReturnsScreen(QWidget):
         main_layout.addWidget(self.table)
 
         fix_comboboxes(self)
+        self.load_returns()
+
+    def load_data(self):
+        self.load_returns()
 
     def load_returns(self):
         return_type = self.type_filter.currentData()

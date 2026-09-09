@@ -157,6 +157,145 @@ class PurchaseDetailDialog(QDialog):
         close_btn.clicked.connect(self.accept)
         layout.addWidget(close_btn)
 
+from PySide6.QtWidgets import QCompleter
+
+class EditPurchaseDialog(QDialog):
+    def __init__(self, purchase, parent=None):
+        super().__init__(parent)
+        self.purchase = purchase
+        self.items = []
+        # Clone items list for editing
+        for item in purchase.get("items", []):
+            self.items.append({
+                "product_id": item["product_id"],
+                "variant_id": item.get("variant_id"),
+                "quantity": item["quantity"],
+                "unit_id": item.get("unit_id"),
+                "purchase_price": item["purchase_price"],
+                "discount": item.get("discount", 0.0)
+            })
+        self.init_ui()
+
+    def init_ui(self):
+        self.setWindowTitle(f"Edit Purchase Invoice: {self.purchase['internal_id']}")
+        self.setMinimumSize(700, 500)
+        self.setStyleSheet("""
+            QDialog { background-color: #121212; color: #ffffff; }
+            QLabel { color: #a0a0a0; font-size: 13px; }
+            QTableWidget { background-color: #1e1e1e; color: white; border: 1px solid #2a2a2a; }
+            QLineEdit { background-color: #1e1e1e; color: white; border: 1px solid #333; padding: 6px; border-radius: 4px; }
+            QPushButton { background-color: #6c5ce7; color: white; padding: 8px 16px; font-weight: bold; border-radius: 4px; }
+        """)
+        
+        layout = QVBoxLayout(self)
+        
+        form_layout = QFormLayout()
+        
+        self.input_inv_num = QLineEdit(self.purchase.get("supplier_invoice_number") or "")
+        form_layout.addRow("Supplier Invoice #:", self.input_inv_num)
+
+        self.input_notes = QLineEdit(self.purchase.get("notes") or "")
+        form_layout.addRow("Notes:", self.input_notes)
+        
+        layout.addLayout(form_layout)
+        
+        layout.addWidget(QLabel("Edit Item Quantities & Stock Prices:"))
+        
+        self.table = QTableWidget()
+        self.table.setColumnCount(5)
+        self.table.setHorizontalHeaderLabels([
+            "Product", "Quantity", "Purchase Price (Rs.)", "Discount (Rs.)", "Total (Rs.)"
+        ])
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table.itemChanged.connect(self.on_table_item_changed)
+        layout.addWidget(self.table)
+        
+        self.populate_items_table()
+
+        # Summary & Actions
+        bottom_layout = QHBoxLayout()
+        
+        self.lbl_grand_total = QLabel()
+        self.lbl_grand_total.setStyleSheet("font-size: 16px; font-weight: bold; color: #6c5ce7;")
+        bottom_layout.addWidget(self.lbl_grand_total)
+        
+        bottom_layout.addStretch()
+
+        btn_cancel = QPushButton("Cancel")
+        btn_cancel.setStyleSheet("background-color: #2e2e2e; color: white;")
+        btn_cancel.clicked.connect(self.reject)
+        bottom_layout.addWidget(btn_cancel)
+
+        btn_save = QPushButton("💾 Save Changes & Update Stock")
+        btn_save.clicked.connect(self.save_changes)
+        bottom_layout.addWidget(btn_save)
+
+        layout.addLayout(bottom_layout)
+        self.update_totals()
+
+    def populate_items_table(self):
+        self.table.blockSignals(True)
+        self.table.setRowCount(len(self.items))
+        
+        prod_list = client.get_products(is_active=None)
+        prod_map = {p["id"]: p["name"] for p in prod_list}
+        
+        for row, item in enumerate(self.items):
+            p_name = prod_map.get(item["product_id"], f"Product ID: {item['product_id']}")
+            
+            p_item = QTableWidgetItem(p_name)
+            p_item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+            self.table.setItem(row, 0, p_item)
+            
+            self.table.setItem(row, 1, QTableWidgetItem(str(item["quantity"])))
+            self.table.setItem(row, 2, QTableWidgetItem(str(item["purchase_price"])))
+            self.table.setItem(row, 3, QTableWidgetItem(str(item["discount"])))
+            
+            total = (item["quantity"] * item["purchase_price"]) - item["discount"]
+            t_item = QTableWidgetItem(f"{total:.2f}")
+            t_item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+            self.table.setItem(row, 4, t_item)
+            
+        self.table.blockSignals(False)
+
+    def on_table_item_changed(self, item_widget):
+        row = item_widget.row()
+        col = item_widget.column()
+        if 0 <= row < len(self.items):
+            text = item_widget.text().strip()
+            try: val = float(text)
+            except ValueError: val = 0.0
+            
+            if col == 1: self.items[row]["quantity"] = val if val > 0 else 1.0
+            elif col == 2: self.items[row]["purchase_price"] = val if val >= 0 else 0.0
+            elif col == 3: self.items[row]["discount"] = val if val >= 0 else 0.0
+            
+            self.populate_items_table()
+            self.update_totals()
+
+    def update_totals(self):
+        grand = 0.0
+        for it in self.items:
+            grand += (it["quantity"] * it["purchase_price"]) - it["discount"]
+        self.lbl_grand_total.setText(f"Updated Grand Total: Rs. {grand:,.2f}")
+
+    def save_changes(self):
+        payload = {
+            "supplier_id": self.purchase["supplier_id"],
+            "location_id": self.purchase["location_id"],
+            "supplier_invoice_number": self.input_inv_num.text().strip() or None,
+            "discount": self.purchase.get("discount", 0.0),
+            "paid_amount": self.purchase.get("paid_amount", 0.0),
+            "notes": self.input_notes.text().strip() or None,
+            "items": self.items
+        }
+        success, res = client.update_purchase(self.purchase["id"], payload)
+        if success:
+            QMessageBox.information(self, "Purchase Updated", f"Successfully updated purchase invoice {self.purchase['internal_id']}!\nStock quantities and supplier ledger have been adjusted.")
+            self.accept()
+        else:
+            QMessageBox.critical(self, "Update Failed", str(res))
+
 class PurchasesScreen(QWidget):
     def __init__(self):
         super().__init__()
@@ -278,12 +417,19 @@ class PurchasesScreen(QWidget):
             action_layout = QHBoxLayout(action_widget)
             action_layout.setContentsMargins(4, 2, 4, 2)
             
-            view_btn = QPushButton("View")
+            view_btn = QPushButton("👁️ View")
             view_btn.setObjectName("ViewAction")
             view_btn.setCursor(Qt.PointingHandCursor)
             view_btn.setProperty("purchase", pur)
             view_btn.clicked.connect(self.open_purchase_details)
             action_layout.addWidget(view_btn)
+
+            edit_btn = QPushButton("✏️ Edit")
+            edit_btn.setStyleSheet("background-color: #e17055; color: white; padding: 4px 8px; font-weight: bold; border-radius: 3px;")
+            edit_btn.setCursor(Qt.PointingHandCursor)
+            edit_btn.setProperty("purchase", pur)
+            edit_btn.clicked.connect(self.open_edit_purchase)
+            action_layout.addWidget(edit_btn)
             
             action_widget.setLayout(action_layout)
             self.table.setCellWidget(row, 7, action_widget)
@@ -294,10 +440,22 @@ class PurchasesScreen(QWidget):
             return
         pur = btn.property("purchase")
         
-        # Load fresh details (with items)
         fresh_pur = client.get_purchase(pur["id"])
         if fresh_pur:
             dialog = PurchaseDetailDialog(fresh_pur, self)
+            dialog.exec()
+
+    def open_edit_purchase(self):
+        btn = self.sender()
+        if not btn:
+            return
+        pur = btn.property("purchase")
+        
+        fresh_pur = client.get_purchase(pur["id"])
+        if fresh_pur:
+            dialog = EditPurchaseDialog(fresh_pur, self)
+            if dialog.exec() == QDialog.Accepted:
+                self.load_purchases()
             dialog.exec()
 
     # --- 2. Record Purchase Tab Setup ---
@@ -499,6 +657,8 @@ class PurchasesScreen(QWidget):
 
         self.form_product_combo.blockSignals(True)
         self.form_product_combo.clear()
+        self.form_product_combo.setEditable(True)
+        self.form_product_combo.setInsertPolicy(QComboBox.NoInsert)
         
         if not supplier_id:
             self.form_product_combo.addItem("-- Please Select a Supplier First --", None)
@@ -515,6 +675,10 @@ class PurchasesScreen(QWidget):
         if not filtered:
             self.form_product_combo.setItemText(0, "-- No Products Linked to this Supplier --")
             
+        completer = QCompleter(self.form_product_combo.model(), self)
+        completer.setFilterMode(Qt.MatchContains)
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        self.form_product_combo.setCompleter(completer)
         self.form_product_combo.blockSignals(False)
 
     def add_product_to_purchase_list(self):

@@ -2,9 +2,9 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QLineEdit, QMessageBox, QDialog,
     QFormLayout, QTextEdit, QComboBox, QTabWidget, QFrame, QGridLayout,
-    QDoubleSpinBox, QCompleter, QTextBrowser, QCheckBox, QScrollArea
+    QDoubleSpinBox, QCompleter, QTextBrowser, QCheckBox, QScrollArea, QDateEdit
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QDate
 from datetime import datetime
 from frontend.api_client import client
 from frontend.theme import fix_comboboxes
@@ -276,39 +276,45 @@ class PrintPreviewDialog(QDialog):
         <html>
         <head>
         <style>
-            body { font-family: 'Courier New', monospace; font-size: 12px; margin: 0 auto; padding: 10px; color: #000; }
+            body { font-family: 'Courier New', monospace; font-size: 11px; margin: 0 auto; padding: 4px; color: #000; line-height: 1.2; }
             .center { text-align: center; }
             .bold { font-weight: bold; }
-            .line { border-top: 1px dashed #000; margin: 6px 0; }
-            table { width: 100%; border-collapse: collapse; }
-            th { font-weight: bold; text-align: left; border-bottom: 1px solid #000; padding: 2px 4px; font-size: 11px; }
-            td { padding: 2px 4px; font-size: 11px; }
+            .line { border-top: 1px dashed #000; margin: 5px 0; }
+            table { width: 100%; table-layout: fixed; border-collapse: collapse; margin: 4px 0; }
+            th { font-weight: bold; text-align: left; border-bottom: 1px solid #000; padding: 2px 1px; font-size: 10px; word-wrap: break-word; }
+            td { padding: 2px 1px; font-size: 10px; word-wrap: break-word; overflow-wrap: break-word; vertical-align: top; }
             .num { text-align: right; }
             .total-row { font-weight: bold; border-top: 1px solid #000; }
-            .grand { font-size: 15px; font-weight: bold; text-align: right; padding: 6px 0; }
-            .footer { text-align: center; margin-top: 12px; font-style: italic; font-size: 11px; }
+            .grand { font-size: 14px; font-weight: bold; text-align: right; padding: 4px 0; }
+            .footer { text-align: center; margin-top: 10px; font-style: italic; font-size: 10px; }
         </style>
         </head>
         <body>
         """
 
-        html += f"<div class='center'><div class='bold' style='font-size:15px;'>{header_text}</div>"
-        html += f"<div class='bold' style='font-size:13px;'>{biz_name}</div>"
+        html += f"<div class='center'><div class='bold' style='font-size:14px;'>{header_text}</div>"
+        html += f"<div class='bold' style='font-size:12px;'>{biz_name}</div>"
         if biz_address:
-            html += f"<div>Address: {biz_address}</div>"
+            html += f"<div>{biz_address}</div>"
         if biz_phone:
             html += f"<div>Ph: {biz_phone}</div>"
         html += "</div>"
 
         html += "<div class='line'></div>"
-        html += f"<div>Mop: Cash Sales &nbsp;&nbsp;&nbsp; Receipt: {self.sale['internal_id']}</div>"
+        html += f"<div>Invoice: <b>{self.sale['internal_id']}</b></div>"
         html += f"<div>Date: {formatted_date}</div>"
         if tmpl.get("show_customer_info") or cust_name != "Walk-in Customer":
             html += f"<div>Customer: {cust_name}</div>"
         html += "<div class='line'></div>"
 
         html += "<table>"
-        html += "<tr><th>Sr.</th><th>Product Name</th><th class='num'>Qty</th><th class='num'>Price</th><th class='num'>Disc</th><th class='num'>Amt</th></tr>"
+        html += "<tr>"
+        html += "<th style='width:7%; text-align:left;'>#</th>"
+        html += "<th style='width:43%; text-align:left;'>Item</th>"
+        html += "<th style='width:12%; text-align:right;'>Qty</th>"
+        html += "<th style='width:18%; text-align:right;'>Price</th>"
+        html += "<th style='width:20%; text-align:right;'>Amt</th>"
+        html += "</tr>"
 
         try:
             prod_list = client.get_products(is_active=None)
@@ -334,26 +340,30 @@ class PrintPreviewDialog(QDialog):
             grand_total += amt
             total_qty += qty
 
-            html += f"<tr>"
-            html += f"<td>{sr}-</td>"
-            html += f"<td>{p_name}</td>"
+            html += "<tr>"
+            html += f"<td>{sr}</td>"
+            html += f"<td>{p_name}"
+            if disc > 0:
+                html += f"<br/><small style='color:#555;'>(Disc: -{disc:.2f})</small>"
+            html += "</td>"
             html += f"<td class='num'>{qty:.0f}</td>"
             html += f"<td class='num'>{price:.2f}</td>"
-            html += f"<td class='num'>{disc:.2f}</td>"
             html += f"<td class='num'>{amt:.2f}</td>"
-            html += f"</tr>"
+            html += "</tr>"
 
         html += "</table>"
         html += "<div class='line'></div>"
 
-        html += f"<table>"
-        html += f"<tr class='total-row'><td>Total Amount Sold Items</td><td class='num' colspan='5'>{grand_total:.2f}</td></tr>"
-        html += f"<tr><td>Total Qty: {total_qty:.0f}</td><td class='num' colspan='5'>{grand_total:.2f} &nbsp; 0 &nbsp; {grand_total:.2f}</td></tr>"
-        html += "</table>"
-
         overall_discount = self.sale.get("discount", 0.0)
         net_total = self.sale.get("total_amount", grand_total)
-        html += f"<div class='grand'>Net Total: &nbsp; {net_total:,.2f}</div>"
+
+        html += "<table>"
+        html += f"<tr><td>Items: <b>{total_qty:.0f}</b></td><td class='num'>Subtotal: <b>Rs. {grand_total:.2f}</b></td></tr>"
+        if overall_discount > 0:
+            html += f"<tr><td>Discount:</td><td class='num'>- Rs. {overall_discount:.2f}</td></tr>"
+        html += "</table>"
+
+        html += f"<div class='grand'>NET TOTAL: Rs. {net_total:,.2f}</div>"
 
         if tmpl.get("show_payment_info"):
             html += "<div class='line'></div>"
@@ -363,7 +373,7 @@ class PrintPreviewDialog(QDialog):
                     html += f"<div>{p['payment_method']}: Rs. {p['amount']:,.2f}</div>"
             paid = self.sale.get("paid_amount", 0)
             bal = self.sale.get("balance_owed", 0)
-            html += f"<div>Paid: Rs. {paid:,.2f} &nbsp;&nbsp; Balance: Rs. {bal:,.2f}</div>"
+            html += f"<div>Paid: Rs. {paid:,.2f} &nbsp;&nbsp; Bal: Rs. {bal:,.2f}</div>"
 
         html += f"<div class='line'></div>"
         html += f"<div class='footer'>{footer_text}</div>"
@@ -945,28 +955,62 @@ class SalesScreen(QWidget):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
         
-        # Filters
-        filter_layout = QHBoxLayout()
-        filter_layout.setSpacing(10)
+        # Filters Row 1: Search & Customer / Location
+        filter_layout1 = QHBoxLayout()
+        filter_layout1.setSpacing(10)
+        
+        self.history_search_input = QLineEdit()
+        self.history_search_input.setPlaceholderText("🔍 Search by Invoice ID or Customer...")
+        self.history_search_input.setStyleSheet("background-color: #1e1e1e; color: white; border: 1px solid #333; padding: 6px; border-radius: 4px;")
+        self.history_search_input.returnPressed.connect(self.load_sales)
+        filter_layout1.addWidget(QLabel("Search:"))
+        filter_layout1.addWidget(self.history_search_input, stretch=2)
         
         self.history_cust_filter = QComboBox()
         self.history_cust_filter.currentIndexChanged.connect(self.load_sales)
-        filter_layout.addWidget(QLabel("Customer Filter:"))
-        filter_layout.addWidget(self.history_cust_filter)
+        filter_layout1.addWidget(QLabel("Customer:"))
+        filter_layout1.addWidget(self.history_cust_filter, stretch=1)
         
         self.history_loc_filter = QComboBox()
         self.history_loc_filter.currentIndexChanged.connect(self.load_sales)
-        filter_layout.addWidget(QLabel("Location Filter:"))
-        filter_layout.addWidget(self.history_loc_filter)
+        filter_layout1.addWidget(QLabel("Location:"))
+        filter_layout1.addWidget(self.history_loc_filter, stretch=1)
         
-        filter_layout.addStretch()
-        
-        refresh_btn = QPushButton("Refresh List")
-        refresh_btn.setStyleSheet("background-color: #2e2e2e; color: white; padding: 6px 12px;")
-        refresh_btn.clicked.connect(self.load_sales)
-        filter_layout.addWidget(refresh_btn)
-        
-        layout.addLayout(filter_layout)
+        layout.addLayout(filter_layout1)
+
+        # Filters Row 2: Date Pickers & Range presets
+        filter_layout2 = QHBoxLayout()
+        filter_layout2.setSpacing(10)
+
+        filter_layout2.addWidget(QLabel("From Date:"))
+        self.start_date_picker = QDateEdit()
+        self.start_date_picker.setCalendarPopup(True)
+        self.start_date_picker.setDate(QDate.currentDate().addDays(-30)) # Default 30 days history
+        self.start_date_picker.dateChanged.connect(self.load_sales)
+        filter_layout2.addWidget(self.start_date_picker)
+
+        filter_layout2.addWidget(QLabel("To Date:"))
+        self.end_date_picker = QDateEdit()
+        self.end_date_picker.setCalendarPopup(True)
+        self.end_date_picker.setDate(QDate.currentDate())
+        self.end_date_picker.dateChanged.connect(self.load_sales)
+        filter_layout2.addWidget(self.end_date_picker)
+
+        # Preset range combo
+        self.range_preset_combo = QComboBox()
+        self.range_preset_combo.addItems(["Last 30 Days", "Today", "Yesterday", "Last 7 Days", "All Time"])
+        self.range_preset_combo.currentIndexChanged.connect(self.on_range_preset_changed)
+        filter_layout2.addWidget(QLabel("Preset:"))
+        filter_layout2.addWidget(self.range_preset_combo)
+
+        filter_layout2.addStretch()
+
+        search_btn = QPushButton("🔍 Search Sales")
+        search_btn.setStyleSheet("background-color: #6c5ce7; color: white; padding: 6px 14px; font-weight: bold; border-radius: 4px;")
+        search_btn.clicked.connect(self.load_sales)
+        filter_layout2.addWidget(search_btn)
+
+        layout.addLayout(filter_layout2)
         
         # History Table
         self.history_table = QTableWidget()
@@ -977,7 +1021,33 @@ class SalesScreen(QWidget):
         self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.history_table.horizontalHeader().setSectionResizeMode(7, QHeaderView.ResizeToContents)
         layout.addWidget(self.history_table)
+
+    def on_range_preset_changed(self):
+        preset = self.range_preset_combo.currentText()
+        today = QDate.currentDate()
+        self.start_date_picker.blockSignals(True)
+        self.end_date_picker.blockSignals(True)
         
+        if preset == "Today":
+            self.start_date_picker.setDate(today)
+            self.end_date_picker.setDate(today)
+        elif preset == "Yesterday":
+            self.start_date_picker.setDate(today.addDays(-1))
+            self.end_date_picker.setDate(today.addDays(-1))
+        elif preset == "Last 7 Days":
+            self.start_date_picker.setDate(today.addDays(-7))
+            self.end_date_picker.setDate(today)
+        elif preset == "Last 30 Days":
+            self.start_date_picker.setDate(today.addDays(-30))
+            self.end_date_picker.setDate(today)
+        elif preset == "All Time":
+            self.start_date_picker.setDate(QDate(2000, 1, 1))
+            self.end_date_picker.setDate(today.addYears(10))
+
+        self.start_date_picker.blockSignals(False)
+        self.end_date_picker.blockSignals(False)
+        self.load_sales()
+
     def load_form_references(self):
         # Load Locations
         try:
@@ -1051,8 +1121,18 @@ class SalesScreen(QWidget):
     def load_sales(self):
         cust_id = self.history_cust_filter.currentData()
         loc_id = self.history_loc_filter.currentData()
+        search_txt = self.history_search_input.text().strip() if hasattr(self, 'history_search_input') else None
         
-        sales = client.get_sales(customer_id=cust_id, location_id=loc_id)
+        start_str = self.start_date_picker.date().toString("yyyy-MM-dd") if hasattr(self, 'start_date_picker') else None
+        end_str = self.end_date_picker.date().toString("yyyy-MM-dd") if hasattr(self, 'end_date_picker') else None
+
+        sales = client.get_sales(
+            customer_id=cust_id,
+            location_id=loc_id,
+            start_date=start_str,
+            end_date=end_str,
+            search=search_txt
+        )
         self.history_table.setRowCount(len(sales))
         
         for row, s in enumerate(sales):

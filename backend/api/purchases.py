@@ -259,3 +259,102 @@ def create_purchase(
     db.commit()
     db.refresh(purchase)
     return purchase
+
+
+@router.put("/{purchase_id}", response_model=PurchaseResponse)
+def update_purchase(
+    purchase_id: int,
+    purchase_in: PurchaseCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    purchase = db.query(PurchaseInvoice).filter(PurchaseInvoice.id == purchase_id).first()
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Purchase invoice not found")
+
+    supplier = db.query(Supplier).filter(Supplier.id == purchase_in.supplier_id).first()
+    if not supplier:
+        raise HTTPException(status_code=400, detail="Invalid supplier selected")
+
+    # 1. Reverse old supplier balance impact
+    supplier.balance -= purchase.payable_amount
+
+    # Delete existing inventory transactions linked to this purchase
+    db.query(InventoryTransaction).filter(
+        InventoryTransaction.reference_id == purchase.internal_id,
+        InventoryTransaction.transaction_type == TransactionType.PURCHASE
+    ).delete(synchronize_session=False)
+
+    # Delete existing purchase items
+    db.query(PurchaseItem).filter(PurchaseItem.purchase_id == purchase.id).delete(synchronize_session=False)
+
+    # 2. Recalculate new item totals
+    subtotal = 0.0
+    items_to_create = []
+
+    for item in purchase_in.items:
+        product = db.query(Product).filter(Product.id == item.product_id).first()
+        if not product:
+            raise HTTPException(status_code=400, detail=f"Product with ID {item.product_id} not found")
+
+        item_gross = item.quantity * item.purchase_price
+        item_total = max(0.0, item_gross - (item.discount or 0.0))
+        subtotal += item_total
+        items_to_create.append((product, item, item_total))
+
+    total_amount = max(0.0, subtotal - (purchase_in.discount or 0.0))
+    paid = min(total_amount, max(0.0, purchase_in.paid_amount or 0.0))
+    payable = total_amount - paid
+
+    # 3. Update Purchase Invoice record
+    purchase.supplier_id = purchase_in.supplier_id
+    purchase.supplier_invoice_number = purchase_in.supplier_invoice_number
+    purchase.location_id = purchase_in.location_id
+    purchase.discount = purchase_in.discount or 0.0
+    purchase.total_amount = total_amount
+    purchase.paid_amount = paid
+    purchase.payable_amount = payable
+    purchase.notes = purchase_in.notes
+    if purchase_in.due_date:
+        purchase.due_date = purchase_in.due_date
+
+    # Apply new supplier balance
+    supplier.balance += payable
+
+    # 4. Re-create items & stock transactions
+    for product, item, item_total in items_to_create:
+        db_item = PurchaseItem(
+            purchase_id=purchase.id,
+            product_id=product.id,
+            variant_id=item.variant_id,
+            quantity=item.quantity,
+            unit_id=item.unit_id or product.unit_id,
+            purchase_price=item.purchase_price,
+            discount=item.discount or 0.0,
+            total=item_total
+        )
+        db.add(db_item)
+
+        # Base units conversion
+        qty_in_base_units = item.quantity
+        item_unit_id = item.unit_id or product.unit_id
+        if item_unit_id and product.secondary_unit_id == item_unit_id and product.conversion_factor:
+            qty_in_base_units = item.quantity * product.conversion_factor
+
+        inv_trans = InventoryTransaction(
+            product_id=product.id,
+            variant_id=item.variant_id,
+            location_id=purchase_in.location_id,
+            transaction_type=TransactionType.PURCHASE,
+            quantity=qty_in_base_units,
+            reference_id=purchase.internal_id,
+            user_id=current_user.id
+        )
+        db.add(inv_trans)
+
+        product.purchase_price = item.purchase_price
+
+    db.commit()
+    db.refresh(purchase)
+    return purchase
+

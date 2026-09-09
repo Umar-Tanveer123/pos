@@ -296,6 +296,14 @@ class APIClient:
         err_msg = response.json().get("detail", "Failed to record purchase invoice") if response else "Connection error"
         return False, err_msg
 
+    def update_purchase(self, purchase_id: int, purchase_data: dict):
+        url = f"{self.base_url}/purchases/{purchase_id}"
+        response = self._request("PUT", url, json=purchase_data)
+        if response and response.status_code == 200:
+            return True, response.json()
+        err_msg = response.json().get("detail", "Failed to update purchase invoice") if response else "Connection error"
+        return False, err_msg
+
     # --- Pricing & Bulk Imports ---
     def bulk_price_update(self, data: dict):
         url = f"{self.base_url}/products/bulk-price-update"
@@ -419,13 +427,19 @@ class APIClient:
         return False, err_msg
 
     # --- Sales / POS API ---
-    def get_sales(self, customer_id=None, location_id=None):
+    def get_sales(self, customer_id=None, location_id=None, start_date=None, end_date=None, search=None):
         url = f"{self.base_url}/sales/"
         params = {}
         if customer_id:
             params["customer_id"] = customer_id
         if location_id:
             params["location_id"] = location_id
+        if start_date:
+            params["start_date"] = start_date
+        if end_date:
+            params["end_date"] = end_date
+        if search:
+            params["search"] = search
         response = self._request("GET", url, params=params)
         return response.json() if response and response.status_code == 200 else []
 

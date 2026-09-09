@@ -153,6 +153,9 @@ def get_payment_methods():
 def get_sales(
     customer_id: Optional[int] = None,
     location_id: Optional[int] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    search: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -161,6 +164,26 @@ def get_sales(
         query = query.filter(SaleInvoice.customer_id == customer_id)
     if location_id:
         query = query.filter(SaleInvoice.location_id == location_id)
+    if start_date:
+        try:
+            sd = datetime.fromisoformat(start_date)
+            query = query.filter(SaleInvoice.date >= sd)
+        except Exception:
+            pass
+    if end_date:
+        try:
+            ed = datetime.fromisoformat(end_date)
+            # Make end_date inclusive of the whole day if no time specified
+            if ed.hour == 0 and ed.minute == 0 and ed.second == 0:
+                ed = ed.replace(hour=23, minute=59, second=59)
+            query = query.filter(SaleInvoice.date <= ed)
+        except Exception:
+            pass
+    if search:
+        search_term = f"%{search.strip()}%"
+        query = query.outerjoin(Customer, SaleInvoice.customer_id == Customer.id).filter(
+            (SaleInvoice.internal_id.ilike(search_term)) | (Customer.name.ilike(search_term))
+        )
     return query.order_by(SaleInvoice.date.desc()).all()
 
 @router.get("/templates", response_model=List[InvoiceTemplateResponse])

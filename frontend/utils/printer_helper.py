@@ -60,7 +60,7 @@ def print_html_receipt(html_content: str, printer_name: str = None, paper_width_
                 return False, "Print cancelled by user."
 
         # Enhance HTML for thermal printer dimensions
-        width_css = "270px" if paper_width_mm == 80 else ("190px" if paper_width_mm == 58 else "100%")
+        width_css = "280px" if paper_width_mm == 80 else ("200px" if paper_width_mm == 58 else "100%")
         font_size_css = "11px" if paper_width_mm == 80 else ("9px" if paper_width_mm == 58 else "13px")
         
         styled_html = f"""
@@ -68,10 +68,13 @@ def print_html_receipt(html_content: str, printer_name: str = None, paper_width_
         <head>
         <style>
             @page {{ margin: 0; }}
-            body {{ width: {width_css}; margin: 0 auto; padding: 4px; font-family: 'Courier New', monospace; font-size: {font_size_css}; color: #000000; }}
-            table {{ width: 100%; border-collapse: collapse; }}
-            td, th {{ font-size: {font_size_css}; padding: 2px 0; }}
+            body {{ width: {width_css}; margin: 0 auto; padding: 2px; font-family: 'Courier New', monospace; font-size: {font_size_css}; color: #000000; line-height: 1.2; }}
+            table {{ width: 100%; table-layout: fixed; border-collapse: collapse; margin: 4px 0; }}
+            td, th {{ font-size: {font_size_css}; padding: 2px 1px; word-wrap: break-word; overflow-wrap: break-word; vertical-align: top; }}
             .line {{ border-top: 1px dashed #000; margin: 4px 0; }}
+            .center {{ text-align: center; }}
+            .bold {{ font-weight: bold; }}
+            .num {{ text-align: right; }}
         </style>
         </head>
         <body>
