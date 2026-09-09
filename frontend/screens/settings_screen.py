@@ -2,15 +2,18 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QTabWidget, QLineEdit, QFormLayout,
     QMessageBox, QComboBox, QCheckBox, QScrollArea, QFrame, QTextEdit,
-    QDialog, QGridLayout
+    QDialog, QGridLayout, QFileDialog
 )
 from PySide6.QtCore import Qt, QDate
+from PySide6.QtGui import QPixmap
+import base64
 from frontend.api_client import client
 from frontend.theme import export_table_to_csv
 
 class SettingsScreen(QWidget):
     def __init__(self):
         super().__init__()
+        self.logo_data_b64 = ""
         
         self.setStyleSheet("""
             QWidget { background-color: #121212; color: #ffffff; }
@@ -76,6 +79,29 @@ class SettingsScreen(QWidget):
         layout = QVBoxLayout(parent)
         form = QFormLayout()
         
+        # Receipt Logo Section
+        logo_layout = QHBoxLayout()
+        self.lbl_logo_preview = QLabel("No Logo Uploaded")
+        self.lbl_logo_preview.setStyleSheet("border: 1px dashed #555; border-radius: 4px; padding: 10px; color: #888; font-size: 11px;")
+        self.lbl_logo_preview.setFixedSize(140, 70)
+        self.lbl_logo_preview.setAlignment(Qt.AlignCenter)
+        logo_layout.addWidget(self.lbl_logo_preview)
+
+        logo_btns = QVBoxLayout()
+        btn_select_logo = QPushButton("🖼️ Select Store Logo Image...")
+        btn_select_logo.setStyleSheet("background-color: #6c5ce7; color: white; padding: 6px 12px; font-weight: bold; border-radius: 4px;")
+        btn_select_logo.clicked.connect(self.select_logo)
+        logo_btns.addWidget(btn_select_logo)
+
+        btn_remove_logo = QPushButton("❌ Clear Logo")
+        btn_remove_logo.setStyleSheet("background-color: #d63031; color: white; padding: 4px 8px; border-radius: 4px;")
+        btn_remove_logo.clicked.connect(self.clear_logo)
+        logo_btns.addWidget(btn_remove_logo)
+        logo_layout.addLayout(logo_btns)
+        logo_layout.addStretch()
+
+        form.addRow(QLabel("Print Receipt Logo:"), logo_layout)
+        
         self.fields = {}
         fields_config = [
             ("business_name", "Business Name"),
@@ -107,6 +133,31 @@ class SettingsScreen(QWidget):
         btn_save.setStyleSheet("background-color: #0984e3; color: white; padding: 8px; font-weight: bold; border-radius: 4px;")
         layout.addWidget(btn_save)
         layout.addStretch()
+
+    def select_logo(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select Store Logo for Receipts", "", "Images (*.png *.jpg *.jpeg *.bmp)"
+        )
+        if file_path:
+            try:
+                with open(file_path, "rb") as f:
+                    b64_str = base64.b64encode(f.read()).decode("utf-8")
+                ext = file_path.split(".")[-1].lower()
+                mime = "png" if ext == "png" else ("jpeg" if ext in ["jpg", "jpeg"] else "bmp")
+                self.logo_data_b64 = f"data:image/{mime};base64,{b64_str}"
+                
+                pix = QPixmap(file_path)
+                if not pix.isNull():
+                    self.lbl_logo_preview.setPixmap(pix.scaled(130, 65, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                else:
+                    self.lbl_logo_preview.setText("Logo Selected")
+            except Exception as e:
+                QMessageBox.warning(self, "Error", f"Failed to load image file: {e}")
+
+    def clear_logo(self):
+        self.logo_data_b64 = ""
+        self.lbl_logo_preview.setPixmap(QPixmap())
+        self.lbl_logo_preview.setText("No Logo Uploaded")
         
     def load_settings(self):
         try:
@@ -114,14 +165,27 @@ class SettingsScreen(QWidget):
             for key, line_edit in self.fields.items():
                 if key in settings_map:
                     line_edit.setText(settings_map[key])
+                    
+            if "receipt_logo_data" in settings_map and settings_map["receipt_logo_data"]:
+                self.logo_data_b64 = settings_map["receipt_logo_data"]
+                # Render preview from base64 data URI
+                try:
+                    data_part = self.logo_data_b64.split(",", 1)[1]
+                    pix = QPixmap()
+                    pix.loadFromData(base64.b64decode(data_part))
+                    if not pix.isNull():
+                        self.lbl_logo_preview.setPixmap(pix.scaled(130, 65, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                except Exception:
+                    self.lbl_logo_preview.setText("Logo Configured")
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to load settings: {e}")
             
     def save_settings(self):
         try:
             payload = {key: line_edit.text() for key, line_edit in self.fields.items()}
+            payload["receipt_logo_data"] = self.logo_data_b64
             client.update_settings(payload)
-            QMessageBox.information(self, "Success", "Configurations updated successfully!")
+            QMessageBox.information(self, "Success", "Configurations & Store Logo updated successfully!")
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to update settings: {e}")
 

@@ -292,7 +292,13 @@ class PrintPreviewDialog(QDialog):
         <body>
         """
 
-        html += f"<div class='center'><div class='bold' style='font-size:14px;'>{header_text}</div>"
+        logo_data = settings.get("receipt_logo_data") or settings.get("receipt_logo_path")
+        show_logo = tmpl.get("show_logo", True)
+
+        html += "<div class='center'>"
+        if show_logo and logo_data:
+            html += f"<div style='margin-bottom:6px;'><img src='{logo_data}' style='max-width:140px; max-height:70px; object-fit:contain;' /></div>"
+        html += f"<div class='bold' style='font-size:14px;'>{header_text}</div>"
         html += f"<div class='bold' style='font-size:12px;'>{biz_name}</div>"
         if biz_address:
             html += f"<div>{biz_address}</div>"
