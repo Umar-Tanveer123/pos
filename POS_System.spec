@@ -3,12 +3,39 @@ from PyInstaller.utils.hooks import collect_all
 
 datas = []
 binaries = []
-hiddenimports = ['uvicorn.logging']
-tmp_ret = collect_all('backend')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('frontend')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+hiddenimports = [
+    'uvicorn',
+    'uvicorn.logging',
+    'uvicorn.loops',
+    'uvicorn.loops.auto',
+    'uvicorn.protocols',
+    'uvicorn.protocols.http',
+    'uvicorn.protocols.http.auto',
+    'uvicorn.protocols.websockets',
+    'uvicorn.protocols.websockets.auto',
+    'uvicorn.lifespan',
+    'uvicorn.lifespan.on',
+    'uvicorn.lifespan.off',
+    'fastapi',
+    'starlette',
+    'pydantic',
+    'sqlalchemy',
+    'passlib',
+    'bcrypt',
+    'jwt'
+]
 
+for pkg in ['uvicorn', 'fastapi', 'starlette', 'sqlalchemy', 'pydantic', 'backend', 'frontend']:
+    try:
+        tmp_ret = collect_all(pkg)
+        datas += tmp_ret[0]
+        binaries += tmp_ret[1]
+        hiddenimports += tmp_ret[2]
+    except Exception as e:
+        print(f"Warning collecting {pkg}: {e}")
+
+# Remove duplicates from hiddenimports while preserving order
+hiddenimports = list(dict.fromkeys(hiddenimports))
 
 a = Analysis(
     ['desktop_app.py'],
