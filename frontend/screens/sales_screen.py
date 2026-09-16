@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt, QDate
 from datetime import datetime
 from frontend.api_client import client
 from frontend.theme import fix_comboboxes
-from frontend.utils.printer_helper import print_html_receipt, kick_cash_drawer, get_available_printers
+from frontend.utils.printer_helper import print_html_receipt, kick_cash_drawer, get_available_printers, generate_receipt_html
 
 class CustomerReturnDialog(QDialog):
     def __init__(self, sale, parent=None):
@@ -251,142 +251,69 @@ class PrintPreviewDialog(QDialog):
         except Exception:
             settings = {}
 
-        biz_name = tmpl.get("business_name") or settings.get("business_name") or "SALE RECEIPT"
-        biz_address = tmpl.get("business_address") or settings.get("business_address") or ""
-        biz_phone = tmpl.get("business_phone") or settings.get("business_phone") or ""
-        header_text = tmpl.get("header_text") or "SALE RECEIPT"
-        footer_text = tmpl.get("footer_text") or "<<Thank you for your Shopping>>"
+        paper_text = self.paper_combo.currentText()
+        paper_width = 58 if "58" in paper_text else (210 if "A4" in paper_text else 80)
 
-        sale_date = self.sale.get("date", "")
-        try:
-            dt = datetime.fromisoformat(sale_date.replace("Z", "+00:00"))
-            formatted_date = dt.strftime("%d-%b-%Y %I:%M:%S %p")
-        except Exception:
-            formatted_date = sale_date
+        # Build enhanced sale dictionary with names attached
+        sale_data = dict(self.sale)
 
-        cust_name = "Walk-in Customer"
-        try:
-            cust = client.get_customer(self.sale["customer_id"])
-            if cust:
-                cust_name = cust["name"]
-        except Exception:
-            pass
+        # Ensure customer_name
+        if "customer_name" not in sale_data:
+            cust_name = "Cash"
+            try:
+                cust = client.get_customer(self.sale.get("customer_id"))
+                if cust:
+                    cust_name = cust["name"]
+            except Exception:
+                pass
+            sale_data["customer_name"] = cust_name
 
-        html = """
-        <html>
-        <head>
-        <style>
-            body { font-family: 'Courier New', monospace; font-size: 11px; margin: 0 auto; padding: 4px; color: #000; line-height: 1.2; }
-            .center { text-align: center; }
-            .bold { font-weight: bold; }
-            .line { border-top: 1px dashed #000; margin: 5px 0; }
-            table { width: 100%; table-layout: fixed; border-collapse: collapse; margin: 4px 0; }
-            th { font-weight: bold; text-align: left; border-bottom: 1px solid #000; padding: 2px 1px; font-size: 10px; word-wrap: break-word; }
-            td { padding: 2px 1px; font-size: 10px; word-wrap: break-word; overflow-wrap: break-word; vertical-align: top; }
-            .num { text-align: right; }
-            .total-row { font-weight: bold; border-top: 1px solid #000; }
-            .grand { font-size: 14px; font-weight: bold; text-align: right; padding: 4px 0; }
-            .footer { text-align: center; margin-top: 10px; font-style: italic; font-size: 10px; }
-        </style>
-        </head>
-        <body>
-        """
+        # Ensure salesman_name
+        if "salesman_name" not in sale_data and "user_name" not in sale_data:
+            try:
+                users = client.get_users()
+                u_map = {u["id"]: u["username"] for u in users}
+                sale_data["salesman_name"] = u_map.get(self.sale.get("user_id"), "Waleed")
+            except Exception:
+                sale_data["salesman_name"] = "Waleed"
 
-        logo_data = settings.get("receipt_logo_data") or settings.get("receipt_logo_path")
-        show_logo = tmpl.get("show_logo", True)
+        # Ensure product items have product names
+        items = list(sale_data.get("items", []))
+        if items:
+            try:
+                prod_list = client.get_products(is_active=None)
+                prod_map = {p["id"]: p for p in prod_list}
+            except Exception:
+                prod_map = {}
 
-        html += "<div class='center'>"
-        if show_logo and logo_data:
-            html += f"<div style='margin-bottom:6px;'><img src='{logo_data}' style='max-width:140px; max-height:70px; object-fit:contain;' /></div>"
-        html += f"<div class='bold' style='font-size:14px;'>{header_text}</div>"
-        html += f"<div class='bold' style='font-size:12px;'>{biz_name}</div>"
-        if biz_address:
-            html += f"<div>{biz_address}</div>"
-        if biz_phone:
-            html += f"<div>Ph: {biz_phone}</div>"
-        html += "</div>"
+            enhanced_items = []
+            for item in items:
+                item_dict = dict(item)
+                if "product_name" not in item_dict:
+                    prod = prod_map.get(item_dict.get("product_id"), {})
+                    p_name = prod.get("name", f"Product #{item_dict.get('product_id')}")
+                    if item_dict.get("variant_id"):
+                        for var in prod.get("variants", []):
+                            if var["id"] == item_dict["variant_id"]:
+                                p_name += f" - {var['name']}"
+                                break
+                    item_dict["product_name"] = p_name
+                    if prod.get("sku"):
+                        item_dict["sku"] = prod.get("sku")
+                enhanced_items.append(item_dict)
+            sale_data["items"] = enhanced_items
 
-        html += "<div class='line'></div>"
-        html += f"<div>Invoice: <b>{self.sale['internal_id']}</b></div>"
-        html += f"<div>Date: {formatted_date}</div>"
-        if tmpl.get("show_customer_info") or cust_name != "Walk-in Customer":
-            html += f"<div>Customer: {cust_name}</div>"
-        html += "<div class='line'></div>"
+        html = generate_receipt_html(
+            sale=sale_data,
+            template=tmpl,
+            settings=settings,
+            paper_width_mm=paper_width
+        )
 
-        html += "<table>"
-        html += "<tr>"
-        html += "<th style='width:7%; text-align:left;'>#</th>"
-        html += "<th style='width:43%; text-align:left;'>Item</th>"
-        html += "<th style='width:12%; text-align:right;'>Qty</th>"
-        html += "<th style='width:18%; text-align:right;'>Price</th>"
-        html += "<th style='width:20%; text-align:right;'>Amt</th>"
-        html += "</tr>"
-
-        try:
-            prod_list = client.get_products(is_active=None)
-            prod_map = {p["id"]: p for p in prod_list}
-        except Exception:
-            prod_map = {}
-
-        grand_total = 0.0
-        total_qty = 0.0
-        for sr, item in enumerate(self.sale.get("items", []), 1):
-            prod = prod_map.get(item["product_id"], {})
-            p_name = prod.get("name", f"Product #{item['product_id']}")
-            if item.get("variant_id"):
-                for var in prod.get("variants", []):
-                    if var["id"] == item["variant_id"]:
-                        p_name += f" {var['name']}"
-                        break
-
-            qty = item["quantity"]
-            price = item["unit_price"]
-            disc = item.get("discount", 0.0)
-            amt = item["total"]
-            grand_total += amt
-            total_qty += qty
-
-            html += "<tr>"
-            html += f"<td>{sr}</td>"
-            html += f"<td>{p_name}"
-            if disc > 0:
-                html += f"<br/><small style='color:#555;'>(Disc: -{disc:.2f})</small>"
-            html += "</td>"
-            html += f"<td class='num'>{qty:.0f}</td>"
-            html += f"<td class='num'>{price:.2f}</td>"
-            html += f"<td class='num'>{amt:.2f}</td>"
-            html += "</tr>"
-
-        html += "</table>"
-        html += "<div class='line'></div>"
-
-        overall_discount = self.sale.get("discount", 0.0)
-        net_total = self.sale.get("total_amount", grand_total)
-
-        html += "<table>"
-        html += f"<tr><td>Items: <b>{total_qty:.0f}</b></td><td class='num'>Subtotal: <b>Rs. {grand_total:.2f}</b></td></tr>"
-        if overall_discount > 0:
-            html += f"<tr><td>Discount:</td><td class='num'>- Rs. {overall_discount:.2f}</td></tr>"
-        html += "</table>"
-
-        html += f"<div class='grand'>NET TOTAL: Rs. {net_total:,.2f}</div>"
-
-        if tmpl.get("show_payment_info"):
-            html += "<div class='line'></div>"
-            payments = self.sale.get("payments", [])
-            if payments:
-                for p in payments:
-                    html += f"<div>{p['payment_method']}: Rs. {p['amount']:,.2f}</div>"
-            paid = self.sale.get("paid_amount", 0)
-            bal = self.sale.get("balance_owed", 0)
-            html += f"<div>Paid: Rs. {paid:,.2f} &nbsp;&nbsp; Bal: Rs. {bal:,.2f}</div>"
-
-        html += f"<div class='line'></div>"
-        html += f"<div class='footer'>{footer_text}</div>"
-        html += "</body></html>"
-        
         self.preview_html = html
         self.preview.setHtml(html)
+
+
 
     def do_direct_print(self):
         p_name = self.printer_combo.currentData() or None

@@ -1,5 +1,6 @@
 import sys
 import subprocess
+from datetime import datetime
 from PySide6.QtPrintSupport import QPrinter, QPrinterInfo, QPrintDialog
 from PySide6.QtGui import QTextDocument, QPageLayout, QPageSize
 from PySide6.QtCore import QSizeF, QMarginsF
@@ -17,6 +18,323 @@ def get_default_printer_name():
         return QPrinterInfo.defaultPrinterName()
     except Exception:
         return ""
+
+def generate_receipt_html(sale: dict, template: dict = None, settings: dict = None, paper_width_mm: int = 80) -> str:
+    """
+    Generates high-fidelity responsive HTML matching thermal receipt standard (Image 2 style).
+    Automatically adjusts text sizing, table layout, borders, and margins based on paper width.
+    """
+    if not template:
+        template = {}
+    if not settings:
+        settings = {}
+
+    biz_name = template.get("business_name") or settings.get("business_name") or "MIAN KHALID SUPERSTORE"
+    biz_address = template.get("business_address") or settings.get("business_address") or "Basement Mian Khalid Super Store Chnda Qila Main GT road Gujranwala"
+    biz_phone = template.get("business_phone") or settings.get("business_phone") or "0317-6421883, 0300-6421883"
+    header_text = template.get("header_text") or "Bill / Invoice"
+    footer_text = template.get("footer_text") or "Software By: gmtechnologies.pk 03007282865"
+
+    logo_data = settings.get("receipt_logo_data") or settings.get("receipt_logo_path")
+    show_logo = template.get("show_logo", True)
+    show_customer_info = template.get("show_customer_info", True)
+    show_payment_info = template.get("show_payment_info", True)
+    show_disc_col = template.get("show_discount_column", True)
+    show_sku = template.get("show_sku", False)
+    show_notes = template.get("show_notes", True)
+
+    # Date formatting
+    sale_date = sale.get("date", "")
+    try:
+        dt = datetime.fromisoformat(str(sale_date).replace("Z", "+00:00"))
+        formatted_date = dt.strftime("%d-%m-%y %H:%M:%S")
+    except Exception:
+        formatted_date = str(sale_date)
+
+    # Customer Name
+    cust_name = sale.get("customer_name") or "Cash"
+
+    # Salesman / Cashier Name
+    salesman_name = sale.get("salesman_name") or sale.get("user_name") or "Waleed"
+
+    # Pay Type
+    payments = sale.get("payments", [])
+    if payments and len(payments) > 0:
+        pay_type = ", ".join(p.get("payment_method", "Cash") for p in payments)
+    else:
+        pay_type = "Cash"
+
+    # Font sizing & spacing based on paper size
+    if paper_width_mm == 58:
+        base_font_pt = "8.5pt"
+        title_font_pt = "12pt"
+        rec_font_pt = "9.5pt"
+        meta_font_pt = "8pt"
+    elif paper_width_mm == 210:
+        base_font_pt = "11pt"
+        title_font_pt = "16pt"
+        rec_font_pt = "12pt"
+        meta_font_pt = "10.5pt"
+    else:
+        # 80mm default
+        base_font_pt = "9.5pt"
+        title_font_pt = "14pt"
+        rec_font_pt = "10.5pt"
+        meta_font_pt = "9pt"
+
+    # Split store name for Arch badge if multi-word
+    words = biz_name.strip().split()
+    if len(words) > 1:
+        arch_top = " ".join(words[:-1])
+        arch_sub = words[-1]
+    else:
+        arch_top = biz_name
+        arch_sub = ""
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    @page {{ margin: 0; }}
+    body {{
+        font-family: Arial, 'Segoe UI', Helvetica, sans-serif;
+        font-size: {base_font_pt};
+        margin: 0 auto;
+        padding: 4px;
+        color: #000000;
+        line-height: 1.25;
+        width: 100%;
+    }}
+    .center {{ text-align: center; }}
+    .logo-arch {{
+        border: 2px solid #000000;
+        border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+        padding: 10px 6px 4px 6px;
+        margin: 0 auto 4px auto;
+        width: 86%;
+        text-align: center;
+    }}
+    .arch-title {{
+        font-size: {title_font_pt};
+        font-weight: 900;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        line-height: 1.1;
+    }}
+    .tagline {{
+        font-style: italic;
+        font-size: 8.5pt;
+        text-align: center;
+        margin-bottom: 4px;
+        font-family: Georgia, 'Times New Roman', serif;
+    }}
+    .store-info {{
+        font-size: 8.5pt;
+        text-align: center;
+        line-height: 1.25;
+        margin-bottom: 6px;
+    }}
+    .box-header {{
+        border: 1px solid #000000;
+        text-align: center;
+        font-weight: bold;
+        font-size: 11pt;
+        padding: 3px 0;
+        margin: 6px 0;
+        letter-spacing: 0.5px;
+    }}
+    .meta-table {{
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 6px;
+        font-size: {meta_font_pt};
+    }}
+    .meta-table td {{
+        padding: 1px 0;
+        vertical-align: top;
+    }}
+    .items-table {{
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 6px;
+        font-size: {meta_font_pt};
+        border: 1px solid #000000;
+    }}
+    .items-table th, .items-table td {{
+        border: 1px solid #000000;
+        padding: 3px 2px;
+        word-wrap: break-word;
+    }}
+    .items-table th {{
+        font-weight: bold;
+        background-color: #f5f5f5;
+    }}
+    .summary-table {{
+        width: 100%;
+        border-collapse: collapse;
+        font-size: {meta_font_pt};
+        margin-top: 4px;
+        border: 1px solid #000000;
+    }}
+    .summary-table td {{
+        border: 1px solid #000000;
+        padding: 3px 4px;
+    }}
+    .summary-table .bold-row td {{
+        font-weight: bold;
+    }}
+    .summary-table .rec-row td {{
+        font-size: {rec_font_pt};
+        font-weight: bold;
+    }}
+    .footer-text {{
+        text-align: center;
+        margin-top: 8px;
+        font-size: 8.5pt;
+    }}
+    .notes-box {{
+        margin-top: 6px;
+        font-size: 8.5pt;
+        border-top: 1px dashed #000;
+        padding-top: 4px;
+    }}
+</style>
+</head>
+<body>
+"""
+
+    if show_logo and logo_data:
+        html += f"<div class='center' style='margin-bottom:6px;'><img src='{logo_data}' style='max-width:140px; max-height:70px; object-fit:contain;' /></div>"
+    
+    html += f"""
+    <div class='logo-arch'>
+        <div class='arch-title'>{arch_top}</div>
+"""
+    if arch_sub:
+        html += f"<div class='arch-title' style='font-size:11pt;'>{arch_sub}</div>"
+
+    html += f"""
+    </div>
+    <div class='tagline'>Amazing Finds Only Here</div>
+    <div class='store-info'>
+        {biz_address}<br/>
+        {biz_phone}
+    </div>
+    <div class='box-header'>{header_text}</div>
+
+    <table class='meta-table'>
+        <tr>
+            <td style='width: 48%;'><b>Bill No:</b> &nbsp;{sale.get('internal_id', '')}</td>
+            <td style='width: 52%; text-align: right;'><b>Date:</b> {formatted_date}</td>
+        </tr>
+"""
+    if show_customer_info or cust_name != "Cash":
+        html += f"""
+        <tr>
+            <td><b>Customer:</b> {cust_name}</td>
+            <td style='text-align: right;'><b>Pay Type:</b> {pay_type}</td>
+        </tr>
+"""
+    elif show_payment_info:
+        html += f"""
+        <tr>
+            <td><b>Pay Type:</b> {pay_type}</td>
+            <td></td>
+        </tr>
+"""
+    html += """
+    </table>
+
+    <table class='items-table'>
+        <thead>
+            <tr>
+                <th style='width: 6%; text-align: center;'>#</th>
+                <th style='width: 40%; text-align: left;'>Product Name</th>
+                <th style='width: 12%; text-align: right;'>Qty</th>
+                <th style='width: 14%; text-align: right;'>Price</th>
+"""
+    if show_disc_col:
+        html += "<th style='width: 12%; text-align: right;'>Disc</th>"
+    html += "<th style='width: 16%; text-align: right;'>Total</th></tr></thead><tbody>"
+
+    total_qty = 0.0
+    total_prod_disc = 0.0
+    for idx, item in enumerate(sale.get("items", []), 1):
+        p_name = item.get("product_name") or f"Item #{idx}"
+        if show_sku and item.get("sku"):
+            p_name += f" ({item['sku']})"
+
+        qty = float(item.get("quantity", 0.0))
+        price = float(item.get("unit_price", 0.0))
+        disc = float(item.get("discount", 0.0))
+        tot = float(item.get("total", (qty * price) - disc))
+        
+        total_qty += qty
+        total_prod_disc += disc
+
+        # Formatting values like Image 2: 2.0, 75, 0.0, 150.0
+        qty_str = f"{qty:.1f}" if qty % 1 != 0 or True else f"{int(qty)}"
+        price_str = f"{price:.0f}" if price.is_integer() else f"{price:.2f}"
+        disc_str = f"{disc:.1f}" if disc % 1 != 0 or True else f"{int(disc)}"
+        tot_str = f"{tot:.1f}" if tot % 1 != 0 or True else f"{int(tot)}"
+
+        html += f"""
+        <tr>
+            <td style='text-align: center;'>{idx}</td>
+            <td>{p_name}</td>
+            <td style='text-align: right;'>{qty_str}</td>
+            <td style='text-align: right;'>{price_str}</td>
+"""
+        if show_disc_col:
+            html += f"<td style='text-align: right;'>{disc_str}</td>"
+        html += f"<td style='text-align: right;'>{tot_str}</td></tr>"
+
+    html += "</tbody></table>"
+
+    grand_total = float(sale.get("total_amount", 0.0))
+    paid_amount = float(sale.get("paid_amount", 0.0))
+    bill_disc = float(sale.get("discount", 0.0))
+    receivable = float(sale.get("balance_owed", grand_total - paid_amount))
+
+    col_span = 3 if show_disc_col else 2
+
+    html += f"""
+    <table class='summary-table'>
+        <tr class='bold-row'>
+            <td colspan='2'><b>Total Bill</b></td>
+            <td style='text-align: center;'><b>{total_qty:.1f}</b></td>
+            <td style='text-align: right;' colspan='{col_span}'><b>{grand_total:.1f}</b></td>
+        </tr>
+        <tr>
+            <td colspan='3'>Cash Received</td>
+            <td style='text-align: right;' colspan='{col_span}'>{paid_amount:.2f}</td>
+        </tr>
+        <tr>
+            <td colspan='3'>Discount on bill</td>
+            <td style='text-align: right;' colspan='{col_span}'>{bill_disc:.2f}</td>
+        </tr>
+        <tr>
+            <td colspan='3'>Discount on Products</td>
+            <td style='text-align: right;' colspan='{col_span}'>{total_prod_disc:.2f}</td>
+        </tr>
+        <tr class='rec-row'>
+            <td colspan='3'><b>Receiveable amount:</b></td>
+            <td style='text-align: right;' colspan='{col_span}'><b>{receivable:.2f}</b></td>
+        </tr>
+    </table>
+
+    <div style='margin-top: 6px; font-size: {meta_font_pt};'><b>Salesman:</b> &nbsp;{salesman_name}</div>
+"""
+    if show_notes and sale.get("notes"):
+        html += f"<div class='notes-box'><b>Note:</b> {sale['notes']}</div>"
+
+    html += f"""
+    <div class='footer-text'>{footer_text}</div>
+</body>
+</html>
+"""
+    return html
 
 def print_html_receipt(html_content: str, printer_name: str = None, paper_width_mm: int = 80, show_dialog: bool = False, parent=None):
     """
@@ -59,36 +377,39 @@ def print_html_receipt(html_content: str, printer_name: str = None, paper_width_
             if dialog.exec() != QPrintDialog.Accepted:
                 return False, "Print cancelled by user."
 
-        # Enhance HTML for thermal printer dimensions
-        width_css = "280px" if paper_width_mm == 80 else ("200px" if paper_width_mm == 58 else "100%")
-        font_size_css = "11px" if paper_width_mm == 80 else ("9px" if paper_width_mm == 58 else "13px")
-        
-        styled_html = f"""
-        <html>
-        <head>
-        <style>
-            @page {{ margin: 0; }}
-            body {{ width: {width_css}; margin: 0 auto; padding: 2px; font-family: 'Courier New', monospace; font-size: {font_size_css}; color: #000000; line-height: 1.2; }}
-            table {{ width: 100%; table-layout: fixed; border-collapse: collapse; margin: 4px 0; }}
-            td, th {{ font-size: {font_size_css}; padding: 2px 1px; word-wrap: break-word; overflow-wrap: break-word; vertical-align: top; }}
-            .line {{ border-top: 1px dashed #000; margin: 4px 0; }}
-            .center {{ text-align: center; }}
-            .bold {{ font-weight: bold; }}
-            .num {{ text-align: right; }}
-        </style>
-        </head>
-        <body>
-        {html_content}
-        </body>
-        </html>
-        """
-
         doc = QTextDocument()
+        
+        if "<html" in html_content.lower():
+            styled_html = html_content
+        else:
+            font_size_css = "9.5pt" if paper_width_mm == 80 else ("8.5pt" if paper_width_mm == 58 else "11pt")
+            styled_html = f"""<!DOCTYPE html>
+            <html>
+            <head>
+            <meta charset="utf-8">
+            <style>
+                @page {{ margin: 0; }}
+                body {{ width: 100%; margin: 0 auto; padding: 4px; font-family: Arial, Helvetica, sans-serif; font-size: {font_size_css}; color: #000000; line-height: 1.25; }}
+                table {{ width: 100%; border-collapse: collapse; margin: 4px 0; border: 1px solid #000; }}
+                td, th {{ font-size: {font_size_css}; padding: 3px 2px; word-wrap: break-word; vertical-align: top; border: 1px solid #000; }}
+                .line {{ border-top: 1px dashed #000; margin: 4px 0; }}
+                .center {{ text-align: center; }}
+                .bold {{ font-weight: bold; }}
+                .num {{ text-align: right; }}
+            </style>
+            </head>
+            <body>
+            {html_content}
+            </body>
+            </html>
+            """
+
         doc.setHtml(styled_html)
         
         rect_width = printer.pageRect(QPrinter.Point).width()
-        if rect_width > 0:
-            doc.setTextWidth(rect_width)
+        if rect_width <= 0:
+            rect_width = 221.0 if paper_width_mm == 80 else (158.0 if paper_width_mm == 58 else 538.0)
+        doc.setTextWidth(rect_width)
             
         doc.print_(printer)
         return True, "Receipt dispatched to printer successfully."
@@ -135,3 +456,4 @@ def kick_cash_drawer(printer_name: str = None):
                 return False, f"LPR drawer signal error: {stderr.decode()}"
         except Exception as e:
             return False, f"Could not send raw pulse to drawer: {str(e)}"
+

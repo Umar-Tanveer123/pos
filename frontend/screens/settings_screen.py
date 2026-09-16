@@ -375,11 +375,14 @@ class SettingsScreen(QWidget):
         self._tmpl_defaults = [
             {
                 "name": "Thermal Receipt",
-                "business_name": "", "business_address": "", "business_phone": "",
-                "header_text": "SALE RECEIPT", "footer_text": "<<Thank you for your Shopping>>",
+                "business_name": "MIAN KHALID SUPERSTORE", 
+                "business_address": "Basement Mian Khalid Super Store Chnda Qila Main GT road Gujranwala", 
+                "business_phone": "0317-6421883, 0300-6421883",
+                "header_text": "Bill / Invoice", 
+                "footer_text": "Software By: gmtechnologies.pk 03007282865",
                 "show_customer_info": True, "show_sku": False,
                 "show_discount_column": True, "show_payment_info": True,
-                "show_logo": False, "show_notes": False, "is_default": True,
+                "show_logo": True, "show_notes": True, "is_default": True,
             },
             {
                 "name": "Full Invoice (A4)",
