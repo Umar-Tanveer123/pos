@@ -451,9 +451,18 @@ class APIClient:
     def create_sale(self, sale_data: dict):
         url = f"{self.base_url}/sales/"
         response = self._request("POST", url, json=sale_data)
-        if response and response.status_code == 200:
+        if response and response.status_code in (200, 201):
             return True, response.json()
-        err_msg = response.json().get("detail", "Failed to record sales invoice") if response else "Connection error"
+        if response is not None:
+            try:
+                err = response.json().get("detail", "Failed to record sales invoice")
+                if isinstance(err, list):
+                    err = "; ".join(f"{item.get('loc', [])}: {item.get('msg')}" for item in err)
+                err_msg = str(err)
+            except Exception:
+                err_msg = f"HTTP {response.status_code}: {response.text}"
+        else:
+            err_msg = "Connection error: Unable to reach backend server (127.0.0.1:8000). Please ensure application is running."
         return False, err_msg
 
     def get_payment_methods(self):

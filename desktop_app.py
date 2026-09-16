@@ -125,8 +125,15 @@ class SafeServer(uvicorn.Server):
 
 def run_backend():
     try:
-        # Configure and start Uvicorn safely using our SafeServer
-        config = uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="warning")
+        # Configure and start Uvicorn safely using our SafeServer with explicit asyncio/h11
+        config = uvicorn.Config(
+            app, 
+            host="127.0.0.1", 
+            port=8000, 
+            log_level="warning",
+            loop="asyncio",
+            http="h11"
+        )
         server = SafeServer(config)
         server.run()
     except Exception as e:
