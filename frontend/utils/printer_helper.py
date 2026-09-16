@@ -223,40 +223,40 @@ def generate_receipt_html(sale: dict, template: dict = None, settings: dict = No
     </div>
     <div class='box-header'>{header_text}</div>
 
-    <table class='meta-table'>
+    <table class='meta-table' width="100%" cellspacing="0" cellpadding="1" border="0">
         <tr>
-            <td style='width: 48%;'><b>Bill No:</b> &nbsp;{sale.get('internal_id', '')}</td>
-            <td style='width: 52%; text-align: right;'><b>Date:</b> {formatted_date}</td>
+            <td width="48%"><b>Bill No:</b> &nbsp;{sale.get('internal_id', '')}</td>
+            <td width="52%" align="right"><b>Date:</b> {formatted_date}</td>
         </tr>
 """
     if show_customer_info or cust_name != "Cash":
         html += f"""
         <tr>
-            <td><b>Customer:</b> {cust_name}</td>
-            <td style='text-align: right;'><b>Pay Type:</b> {pay_type}</td>
+            <td width="50%"><b>Customer:</b> {cust_name}</td>
+            <td width="50%" align="right"><b>Pay Type:</b> {pay_type}</td>
         </tr>
 """
     elif show_payment_info:
         html += f"""
         <tr>
-            <td><b>Pay Type:</b> {pay_type}</td>
-            <td></td>
+            <td width="50%"><b>Pay Type:</b> {pay_type}</td>
+            <td width="50%"></td>
         </tr>
 """
     html += """
     </table>
 
-    <table class='items-table'>
+    <table class='items-table' width="100%" cellspacing="0" cellpadding="2" border="1">
         <thead>
             <tr>
-                <th style='width: 6%; text-align: center;'>#</th>
-                <th style='width: 40%; text-align: left;'>Product Name</th>
-                <th style='width: 12%; text-align: right;'>Qty</th>
-                <th style='width: 14%; text-align: right;'>Price</th>
+                <th width="7%" align="center">#</th>
+                <th width="39%" align="left">Product Name</th>
+                <th width="12%" align="right">Qty</th>
+                <th width="14%" align="right">Price</th>
 """
     if show_disc_col:
-        html += "<th style='width: 12%; text-align: right;'>Disc</th>"
-    html += "<th style='width: 16%; text-align: right;'>Total</th></tr></thead><tbody>"
+        html += '<th width="12%" align="right">Disc</th>'
+    html += '<th width="16%" align="right">Total</th></tr></thead><tbody>'
 
     total_qty = 0.0
     total_prod_disc = 0.0
@@ -273,22 +273,22 @@ def generate_receipt_html(sale: dict, template: dict = None, settings: dict = No
         total_qty += qty
         total_prod_disc += disc
 
-        # Formatting values like Image 2: 2.0, 75, 0.0, 150.0
-        qty_str = f"{qty:.1f}" if qty % 1 != 0 or True else f"{int(qty)}"
-        price_str = f"{price:.0f}" if price.is_integer() else f"{price:.2f}"
-        disc_str = f"{disc:.1f}" if disc % 1 != 0 or True else f"{int(disc)}"
-        tot_str = f"{tot:.1f}" if tot % 1 != 0 or True else f"{int(tot)}"
+        # Formatting values: Qty 2.0 or 2, Prices 370.00
+        qty_str = f"{qty:.1f}" if qty % 1 != 0 else f"{int(qty)}.0"
+        price_str = f"{price:.2f}"
+        disc_str = f"{disc:.2f}"
+        tot_str = f"{tot:.2f}"
 
         html += f"""
         <tr>
-            <td style='text-align: center;'>{idx}</td>
-            <td>{p_name}</td>
-            <td style='text-align: right;'>{qty_str}</td>
-            <td style='text-align: right;'>{price_str}</td>
+            <td width="7%" align="center">{idx}</td>
+            <td width="39%" align="left">{p_name}</td>
+            <td width="12%" align="right">{qty_str}</td>
+            <td width="14%" align="right">{price_str}</td>
 """
         if show_disc_col:
-            html += f"<td style='text-align: right;'>{disc_str}</td>"
-        html += f"<td style='text-align: right;'>{tot_str}</td></tr>"
+            html += f'<td width="12%" align="right">{disc_str}</td>'
+        html += f'<td width="16%" align="right">{tot_str}</td></tr>'
 
     html += "</tbody></table>"
 
@@ -300,27 +300,27 @@ def generate_receipt_html(sale: dict, template: dict = None, settings: dict = No
     col_span = 3 if show_disc_col else 2
 
     html += f"""
-    <table class='summary-table'>
+    <table class='summary-table' width="100%" cellspacing="0" cellpadding="2" border="1">
         <tr class='bold-row'>
-            <td colspan='2'><b>Total Bill</b></td>
-            <td style='text-align: center;'><b>{total_qty:.1f}</b></td>
-            <td style='text-align: right;' colspan='{col_span}'><b>{grand_total:.1f}</b></td>
+            <td width="46%" colspan="2"><b>Total Bill</b></td>
+            <td width="12%" align="center"><b>{total_qty:.1f}</b></td>
+            <td width="42%" align="right" colspan="{col_span}"><b>{grand_total:.2f}</b></td>
         </tr>
         <tr>
-            <td colspan='3'>Cash Received</td>
-            <td style='text-align: right;' colspan='{col_span}'>{paid_amount:.2f}</td>
+            <td width="58%" colspan="3">Cash Received</td>
+            <td width="42%" align="right" colspan="{col_span}">{paid_amount:.2f}</td>
         </tr>
         <tr>
-            <td colspan='3'>Discount on bill</td>
-            <td style='text-align: right;' colspan='{col_span}'>{bill_disc:.2f}</td>
+            <td width="58%" colspan="3">Discount on bill</td>
+            <td width="42%" align="right" colspan="{col_span}">{bill_disc:.2f}</td>
         </tr>
         <tr>
-            <td colspan='3'>Discount on Products</td>
-            <td style='text-align: right;' colspan='{col_span}'>{total_prod_disc:.2f}</td>
+            <td width="58%" colspan="3">Discount on Products</td>
+            <td width="42%" align="right" colspan="{col_span}">{total_prod_disc:.2f}</td>
         </tr>
         <tr class='rec-row'>
-            <td colspan='3'><b>Receiveable amount:</b></td>
-            <td style='text-align: right;' colspan='{col_span}'><b>{receivable:.2f}</b></td>
+            <td width="58%" colspan="3"><b>Receiveable amount:</b></td>
+            <td width="42%" align="right" colspan="{col_span}"><b>{receivable:.2f}</b></td>
         </tr>
     </table>
 
