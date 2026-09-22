@@ -97,6 +97,7 @@ def generate_receipt_html(sale: dict, template: dict = None, settings: dict = No
 <meta charset="utf-8">
 <style>
     @page {{ margin: 0; }}
+    * {{ box-sizing: border-box; }}
     body {{
         font-family: Arial, 'Segoe UI', Helvetica, sans-serif;
         font-size: {base_font_pt};
@@ -146,6 +147,7 @@ def generate_receipt_html(sale: dict, template: dict = None, settings: dict = No
     }}
     .meta-table {{
         width: 100%;
+        table-layout: fixed;
         border-collapse: collapse;
         margin-bottom: 6px;
         font-size: {meta_font_pt};
@@ -156,6 +158,7 @@ def generate_receipt_html(sale: dict, template: dict = None, settings: dict = No
     }}
     .items-table {{
         width: 100%;
+        table-layout: fixed;
         border-collapse: collapse;
         margin-bottom: 6px;
         font-size: {meta_font_pt};
@@ -172,6 +175,7 @@ def generate_receipt_html(sale: dict, template: dict = None, settings: dict = No
     }}
     .summary-table {{
         width: 100%;
+        table-layout: fixed;
         border-collapse: collapse;
         font-size: {meta_font_pt};
         margin-top: 4px;
@@ -245,18 +249,25 @@ def generate_receipt_html(sale: dict, template: dict = None, settings: dict = No
 """
     html += """
     </table>
+"""
 
+    if show_disc_col:
+        w_num, w_name, w_qty, w_price, w_disc, w_tot = "7%", "39%", "12%", "14%", "12%", "16%"
+    else:
+        w_num, w_name, w_qty, w_price, w_disc, w_tot = "8%", "48%", "14%", "14%", "0%", "16%"
+
+    html += f"""
     <table class='items-table' width="100%" cellspacing="0" cellpadding="2" border="1">
         <thead>
             <tr>
-                <th width="7%" align="center">#</th>
-                <th width="39%" align="left">Product Name</th>
-                <th width="12%" align="right">Qty</th>
-                <th width="14%" align="right">Price</th>
+                <th width="{w_num}" align="center">#</th>
+                <th width="{w_name}" align="left">Product Name</th>
+                <th width="{w_qty}" align="right">Qty</th>
+                <th width="{w_price}" align="right">Price</th>
 """
     if show_disc_col:
-        html += '<th width="12%" align="right">Disc</th>'
-    html += '<th width="16%" align="right">Total</th></tr></thead><tbody>'
+        html += f'<th width="{w_disc}" align="right">Disc</th>'
+    html += f'<th width="{w_tot}" align="right">Total</th></tr></thead><tbody>'
 
     total_qty = 0.0
     total_prod_disc = 0.0
@@ -281,14 +292,14 @@ def generate_receipt_html(sale: dict, template: dict = None, settings: dict = No
 
         html += f"""
         <tr>
-            <td width="7%" align="center">{idx}</td>
-            <td width="39%" align="left">{p_name}</td>
-            <td width="12%" align="right">{qty_str}</td>
-            <td width="14%" align="right">{price_str}</td>
+            <td width="{w_num}" align="center">{idx}</td>
+            <td width="{w_name}" align="left">{p_name}</td>
+            <td width="{w_qty}" align="right">{qty_str}</td>
+            <td width="{w_price}" align="right">{price_str}</td>
 """
         if show_disc_col:
-            html += f'<td width="12%" align="right">{disc_str}</td>'
-        html += f'<td width="16%" align="right">{tot_str}</td></tr>'
+            html += f'<td width="{w_disc}" align="right">{disc_str}</td>'
+        html += f'<td width="{w_tot}" align="right">{tot_str}</td></tr>'
 
     html += "</tbody></table>"
 
@@ -297,30 +308,41 @@ def generate_receipt_html(sale: dict, template: dict = None, settings: dict = No
     bill_disc = float(sale.get("discount", 0.0))
     receivable = float(sale.get("balance_owed", grand_total - paid_amount))
 
-    col_span = 3 if show_disc_col else 2
+    if show_disc_col:
+        lbl_w = "46%"
+        qty_w = "12%"
+        val_w = "42%"
+        col_span = 3
+        sub_lbl_w = "58%"
+    else:
+        lbl_w = "56%"
+        qty_w = "14%"
+        val_w = "30%"
+        col_span = 2
+        sub_lbl_w = "70%"
 
     html += f"""
     <table class='summary-table' width="100%" cellspacing="0" cellpadding="2" border="1">
         <tr class='bold-row'>
-            <td width="46%" colspan="2"><b>Total Bill</b></td>
-            <td width="12%" align="center"><b>{total_qty:.1f}</b></td>
-            <td width="42%" align="right" colspan="{col_span}"><b>{grand_total:.2f}</b></td>
+            <td width="{lbl_w}" colspan="2"><b>Total Bill</b></td>
+            <td width="{qty_w}" align="center"><b>{total_qty:.1f}</b></td>
+            <td width="{val_w}" align="right" colspan="{col_span}"><b>{grand_total:.2f}</b></td>
         </tr>
         <tr>
-            <td width="58%" colspan="3">Cash Received</td>
-            <td width="42%" align="right" colspan="{col_span}">{paid_amount:.2f}</td>
+            <td width="{sub_lbl_w}" colspan="3">Cash Received</td>
+            <td width="{val_w}" align="right" colspan="{col_span}">{paid_amount:.2f}</td>
         </tr>
         <tr>
-            <td width="58%" colspan="3">Discount on bill</td>
-            <td width="42%" align="right" colspan="{col_span}">{bill_disc:.2f}</td>
+            <td width="{sub_lbl_w}" colspan="3">Discount on bill</td>
+            <td width="{val_w}" align="right" colspan="{col_span}">{bill_disc:.2f}</td>
         </tr>
         <tr>
-            <td width="58%" colspan="3">Discount on Products</td>
-            <td width="42%" align="right" colspan="{col_span}">{total_prod_disc:.2f}</td>
+            <td width="{sub_lbl_w}" colspan="3">Discount on Products</td>
+            <td width="{val_w}" align="right" colspan="{col_span}">{total_prod_disc:.2f}</td>
         </tr>
         <tr class='rec-row'>
-            <td width="58%" colspan="3"><b>Receiveable amount:</b></td>
-            <td width="42%" align="right" colspan="{col_span}"><b>{receivable:.2f}</b></td>
+            <td width="{sub_lbl_w}" colspan="3"><b>Receiveable amount:</b></td>
+            <td width="{val_w}" align="right" colspan="{col_span}"><b>{receivable:.2f}</b></td>
         </tr>
     </table>
 
@@ -389,8 +411,9 @@ def print_html_receipt(html_content: str, printer_name: str = None, paper_width_
             <meta charset="utf-8">
             <style>
                 @page {{ margin: 0; }}
+                * {{ box-sizing: border-box; }}
                 body {{ width: 100%; margin: 0 auto; padding: 4px; font-family: Arial, Helvetica, sans-serif; font-size: {font_size_css}; color: #000000; line-height: 1.25; }}
-                table {{ width: 100%; border-collapse: collapse; margin: 4px 0; border: 1px solid #000; }}
+                table {{ width: 100%; table-layout: fixed; border-collapse: collapse; margin: 4px 0; border: 1px solid #000; }}
                 td, th {{ font-size: {font_size_css}; padding: 3px 2px; word-wrap: break-word; vertical-align: top; border: 1px solid #000; }}
                 .line {{ border-top: 1px dashed #000; margin: 4px 0; }}
                 .center {{ text-align: center; }}
@@ -406,9 +429,13 @@ def print_html_receipt(html_content: str, printer_name: str = None, paper_width_
 
         doc.setHtml(styled_html)
         
-        rect_width = printer.pageRect(QPrinter.Point).width()
+        # Calculate printable width in DevicePixels so QTextDocument layout matches thermal printer canvas width
+        rect_width = printer.pageRect(QPrinter.Unit.DevicePixel).width()
         if rect_width <= 0:
-            rect_width = 221.0 if paper_width_mm == 80 else (158.0 if paper_width_mm == 58 else 538.0)
+            dpi = printer.resolution() if printer.resolution() > 0 else 203
+            margin_mm = 2 if paper_width_mm in [58, 80] else 20
+            rect_width = (paper_width_mm - margin_mm) * (dpi / 25.4)
+            
         doc.setTextWidth(rect_width)
             
         doc.print_(printer)
