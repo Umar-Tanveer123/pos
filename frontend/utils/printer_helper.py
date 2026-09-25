@@ -429,13 +429,16 @@ def print_html_receipt(html_content: str, printer_name: str = None, paper_width_
 
         doc.setHtml(styled_html)
         
-        # Calculate printable width in DevicePixels so QTextDocument layout matches thermal printer canvas width
-        rect_width = printer.pageRect(QPrinter.Unit.DevicePixel).width()
+        # Calculate printable width in Points (logical units) so QTextDocument layout
+        # matches the printer's CSS coordinate space. DevicePixel values are much larger
+        # than what QTextDocument expects, which caused every column to be too narrow
+        # and text to wrap vertically on thermal printers.
+        rect_width = printer.pageRect(QPrinter.Unit.Point).width()
         if rect_width <= 0:
-            dpi = printer.resolution() if printer.resolution() > 0 else 203
+            # Fallback: derive from paper width in mm -> points (1 mm = 2.8346 pt)
             margin_mm = 2 if paper_width_mm in [58, 80] else 20
-            rect_width = (paper_width_mm - margin_mm) * (dpi / 25.4)
-            
+            rect_width = (paper_width_mm - margin_mm) * 2.8346
+
         doc.setTextWidth(rect_width)
             
         doc.print_(printer)
